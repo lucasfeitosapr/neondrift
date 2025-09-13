@@ -11,6 +11,37 @@ export function startGame(): void {
   const scoreElement = document.getElementById('score') as HTMLElement;
   const highScoreElement = document.getElementById('highScore') as HTMLElement;
 
+  // Responsive resize handler: set canvas CSS size and logical size to a sensible range
+  function resizeCanvas() {
+    // keep some padding from the body
+    const padding = 40; // accounts for body padding/margins
+    // limit width so it doesn't grow too wide on large displays
+    const cssWidth = Math.max(320, Math.min(400, window.innerWidth - padding));
+    // increase vertical size by using a large fraction of available height, but within min/max
+    const cssHeight = Math.max(600, Math.min(1200, Math.floor(window.innerHeight * 0.78)));
+
+    // Apply CSS size
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+
+    // Set logical canvas size to match CSS pixels so existing game math (which uses canvas.width/height)
+    // continues to work without changing many places in the codebase.
+    canvas.width = cssWidth;
+    canvas.height = cssHeight;
+
+    // Optional: keep a clean transform state
+    try {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    } catch (e) { /* ignore if context lost */ }
+
+    // If player exists, reposition to sensible default relative to new size
+    if ((globalThis as any)._neondrift_player_ref) {
+      const p = (globalThis as any)._neondrift_player_ref as any;
+      p.x = Math.floor(canvas.width / 2 - p.width / 2);
+      p.y = canvas.height - 60;
+    }
+  }
+
   // High score persistence
   let highScore = parseInt(localStorage.getItem('neondrift_highscore') || '0', 10) || 0;
   highScoreElement.textContent = `H I G H : ${highScore.toString().padStart(6, '0')}`;
@@ -59,15 +90,8 @@ export function startGame(): void {
   let time = 0;
   let dtFactor = 1; // frame-normalized multiplier (dt * 60)
 
-  // Player
-  const player: any = {
-    x: canvas.width / 2 - 25,
-    y: canvas.height - 60,
-    width: 50,
-    height: 30,
-    speed: 6,
-    trail: [] as any[]
-  };
+  // Player will be created after the first resize so positioning uses the current canvas size
+  let player: any = null;
 
   // Arrays for game objects
   const crystals: any[] = [];
@@ -76,6 +100,9 @@ export function startGame(): void {
   const particles: any[] = []; // active particles
   const MAX_PARTICLES = config.PARTICLE_POOL_SIZE;
   const particlePool = new Pool(() => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 1, color: '0,255,255' }), MAX_PARTICLES);
+
+  // store a global ref so the resize handler can update the player without altering many call sites
+  (globalThis as any)._neondrift_player_ref = player;
 
   // Combo engine state
   let lastCollectTimestamp = 0; // ms since epoch
@@ -119,6 +146,20 @@ export function startGame(): void {
 
   // Input handling (moved to module)
   initInput();
+
+  // run initial resize and create player now that canvas size is known
+  resizeCanvas();
+
+  // create player now that canvas dimensions are set
+  player = {
+    x: canvas.width / 2 - 25,
+    y: canvas.height - 60,
+    width: 50,
+    height: 30,
+    speed: 6,
+    trail: [] as any[]
+  };
+  (globalThis as any)._neondrift_player_ref = player;
 
   // createCrystal / createMeteor moved to spawner module
 
