@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>N E O N  D R I F T</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0a0a0f 0%, #1a0a2e 50%, #16213e 100%);
+            font-family: 'Orbitron', monospace;
+            color: #00ffff;
+            overflow: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 98px,
+                    rgba(0, 255, 255, 0.03) 100px
+                );
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        canvas {
+            background: linear-gradient(180deg, #0f0518 0%, #1a0033 50%, #0f1419 100%);
+            border: 2px solid #ff00ff;
+            border-radius: 5px;
+            box-shadow: 
+                0 0 20px rgba(255, 0, 255, 0.5),
+                inset 0 0 20px rgba(0, 255, 255, 0.1);
+            position: relative;
+            z-index: 2;
+        }
+        
+        .game-container {
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .controls {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #ff00ff;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .score {
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 900;
+            color: #00ffff;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 1);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            color: #ff00ff;
+            text-shadow: 0 0 30px rgba(255, 0, 255, 1);
+            letter-spacing: 8px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="title">N E O N  D R I F T</div>
+        <div class="score" id="score">S C O R E : 0</div>
+        <div class="score" id="highScore">H I G H : 000000</div>
+        <canvas id="gameCanvas" width="400" height="500"></canvas>
+        <div class="controls">
+            ← → or A/D to cruise<br>
+            Collect neon crystals • Dodge cyber meteors
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+
+        // High score persistence
+        let highScore = parseInt(localStorage.getItem('neondrift_highscore') || '0', 10) || 0;
+        highScoreElement.textContent = `H I G H : ${highScore.toString().padStart(6, '0')}`;
+
+        // Game state
+        let score = 0;
+        let gameRunning = true;
+        let gameSpeed = 2;
+        let time = 0;
+
+        // Player
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 60,
+            width: 50,
+            height: 30,
+            speed: 6,
+            trail: []
+        };
+
+        // Arrays for game objects
+        const crystals = [];
+        const meteors = [];
+        const gridLines = [];
+        const particles = []; // active particles
+        const particlePool = []; // recycled particles
+        const MAX_PARTICLES = 400;
+        let dtFactor = 1; // frame-normalized multiplier (dt * 60)
+
+        // Initialize particle pool
+        for (let i = 0; i < MAX_PARTICLES; i++) {
+            particlePool.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 1, color: '0,255,255' });
+        }
+
+        // Initialize grid
+        for (let i = 0; i < 20; i++) {
+            gridLines.push({
+                y: i * 30,
+                opacity: Math.random() * 0.5 + 0.1
+            });
+        }
+
+        // Input handling
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            keys[k] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            keys[k] = false;
+        });
+
+        // Create falling objects
+        function createCrystal() {
+            // Choose crystal type based on current score with weighted probabilities
+            const typesPool = [];
+            // Base cyan (common)
+            typesPool.push({ color: 'cyan', points: 10, colorHex: '#00ffff', colorRgb: '0, 255, 255' });
+
+            if (score >= 150) {
+                // purple becomes available and should be somewhat common (40% weight)
+                for (let i = 0; i < 4; i++) {
+                    typesPool.push({ color: 'purple', points: 20, colorHex: '#aa00ff', colorRgb: '170, 0, 255' });
+                }
+            }
+
+            if (score >= 350) {
+                // gold appears with medium rarity (30% weight)
+                for (let i = 0; i < 3; i++) {
+                    typesPool.push({ color: 'gold', points: 30, colorHex: '#ffaa00', colorRgb: '255, 170, 0' });
+                }
+            }
+
+            if (score >= 500) {
+                // rainbow is rare (single entry, ~10% when present depending on pool size)
+                typesPool.push({ color: 'rainbow', points: 50, colorHex: null, colorRgb: '255, 255, 255' });
+            }
+
+            const chosenType = typesPool[Math.floor(Math.random() * typesPool.length)];
+
+            crystals.push({
+                x: Math.random() * (canvas.width - 25),
+                y: -25,
+                width: 25,
+                height: 25,
+                speed: gameSpeed + Math.random() * 2,
+                rotation: 0,
+                glow: Math.random() * 0.5 + 0.5,
+                type: chosenType,
+                hueOffset: Math.random() * 360 // used for subtle rainbow variation
+            });
+        }
+
+        // Reintroduced meteor factory (was removed during refactor). Keeps previous behavior.
+        function createMeteor() {
+            meteors.push({
+                x: Math.random() * (canvas.width - 30),
+                y: -30,
+                width: 30,
+                height: 30,
+                speed: gameSpeed + Math.random() * 3,
+                rotation: 0,
+                pulse: 0
+            });
+        }
+
+        // Particle pooling helper
+        function spawnParticleFromPool(x, y, vx, vy, life, decay, size, color, colorType, hueOffset) {
+            if (particlePool.length === 0) return null;
+            const p = particlePool.pop();
+            p.active = true;
+            p.x = x;
+            p.y = y;
+            p.vx = vx;
+            p.vy = vy;
+            p.life = life;
+            p.decay = decay;
+            p.size = size;
+            if (colorType === 'rainbow') {
+                p.colorType = 'rainbow';
+                p.hueOffset = hueOffset || 0;
+                p.color = null;
+            } else {
+                p.colorType = 'rgb';
+                p.color = color;
+                p.hueOffset = 0;
+            }
+            particles.push(p);
+            return p;
+        }
+
+        function createParticle(x, y, color) {
+            if (color === 'rainbow') {
+                // Bigger, flashy rainbow burst but snappy fade
+                for (let i = 0; i < 16; i++) {
+                    const vx = (Math.random() - 0.5) * 8;
+                    const vy = (Math.random() - 0.5) * 8;
+                    const life = 1;
+                    const decay = 0.04; // per-frame units, we'll scale by dtFactor
+                    const size = Math.random() * 4 + 1.5;
+                    spawnParticleFromPool(x, y, vx, vy, life, decay, size, null, 'rainbow', Math.random() * 360);
+                }
+            } else {
+                // Regular colored burst, slightly larger than before
+                for (let i = 0; i < 10; i++) {
+                    const vx = (Math.random() - 0.5) * 6;
+                    const vy = (Math.random() - 0.5) * 6;
+                    const life = 1;
+                    const decay = 0.03;
+                    const size = Math.random() * 3 + 1.5;
+                    spawnParticleFromPool(x, y, vx, vy, life, decay, size, color, 'rgb', 0);
+                }
+            }
+        }
+
+        // Draw functions
+        function drawGrid() {
+            time += 0.02;
+            
+            // Moving grid background
+            ctx.strokeStyle = 'rgba(255, 0, 255, 0.15)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines (moving)
+            gridLines.forEach(line => {
+                line.y += gameSpeed * 0.5;
+                if (line.y > canvas.height + 30) {
+                    line.y = -30;
+                    line.opacity = Math.random() * 0.5 + 0.1;
+                }
+                
+                ctx.strokeStyle = `rgba(0, 255, 255, ${line.opacity})`;
+                ctx.beginPath();
+                ctx.moveTo(0, line.y);
+                ctx.lineTo(canvas.width, line.y);
+                ctx.stroke();
+            });
+        }
+
+        function drawPlayer() {
+            // Add to trail
+            player.trail.push({ x: player.x + player.width/2, y: player.y + player.height/2 });
+            if (player.trail.length > 8) player.trail.shift();
+            
+            // Draw trail
+            for (let i = 0; i < player.trail.length; i++) {
+                const alpha = i / player.trail.length * 0.5;
+                const size = (i / player.trail.length) * 4;
+                ctx.fillStyle = `rgba(0, 255, 255, ${alpha})`;
+                ctx.fillRect(player.trail[i].x - size/2, player.trail[i].y - size/2, size, size);
+            }
+            
+            // Draw main ship body
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 15;
+            
+            // Ship body (triangle)
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width/2, player.y);
+            ctx.lineTo(player.x, player.y + player.height);
+            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Ship details
+            ctx.fillStyle = '#ff00ff';
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(player.x + player.width/2 - 3, player.y + 10, 6, 15);
+            
+            ctx.shadowBlur = 0;
+        }
+
+        function drawCrystal(crystal) {
+            crystal.rotation += 0.1;
+
+            ctx.save();
+            ctx.translate(crystal.x + crystal.width/2, crystal.y + crystal.height/2);
+            ctx.rotate(crystal.rotation);
+
+            // Determine main and shadow colors
+            let mainColor = crystal.type.colorHex || '#00ffff';
+            let shadowColor = mainColor;
+
+            if (crystal.type.color === 'rainbow') {
+                // Dynamic hue cycling using global time and a per-crystal offset
+                const hue = (time * 120 + crystal.hueOffset) % 360;
+                mainColor = `hsl(${hue}, 100%, 60%)`;
+                shadowColor = mainColor;
+            }
+
+            // Glow effect
+            ctx.shadowColor = shadowColor;
+            ctx.shadowBlur = 20 * crystal.glow;
+
+            // Crystal shape (diamond) - main color
+            ctx.fillStyle = mainColor;
+            ctx.beginPath();
+            ctx.moveTo(0, -12);
+            ctx.lineTo(8, 0);
+            ctx.lineTo(0, 12);
+            ctx.lineTo(-8, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            // Inner glow (bright core) - cycle for rainbow crystals too
+            let innerColor = '#ffffff';
+            if (crystal.type.color === 'rainbow') {
+                const hueInner = (time * 120 + crystal.hueOffset + 45) % 360; // offset for contrast
+                innerColor = `hsl(${hueInner}, 100%, 70%)`;
+            }
+            ctx.fillStyle = innerColor;
+            ctx.beginPath();
+            ctx.moveTo(0, -6);
+            ctx.lineTo(4, 0);
+            ctx.lineTo(0, 6);
+            ctx.lineTo(-4, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawMeteor(meteor) {
+            meteor.rotation += 0.05;
+            meteor.pulse += 0.1;
+            
+            ctx.save();
+            ctx.translate(meteor.x + meteor.width/2, meteor.y + meteor.height/2);
+            ctx.rotate(meteor.rotation);
+            
+            // Pulsing glow
+            const glowIntensity = Math.sin(meteor.pulse) * 0.3 + 0.7;
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 25 * glowIntensity;
+            
+            // Meteor body
+            ctx.fillStyle = '#ff00ff';
+            ctx.fillRect(-15, -15, 30, 30);
+            
+            // Inner core
+            ctx.fillStyle = '#ff6666';
+            ctx.fillRect(-8, -8, 16, 16);
+            
+            // Danger lines
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-10, -10);
+            ctx.lineTo(10, 10);
+            ctx.moveTo(10, -10);
+            ctx.lineTo(-10, 10);
+            ctx.stroke();
+            
+            ctx.restore();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+
+                // Update using frame-normalized factor
+                particle.x += particle.vx * dtFactor;
+                particle.y += particle.vy * dtFactor;
+                particle.life -= particle.decay * dtFactor;
+
+                if (particle.life <= 0) {
+                    // recycle
+                    particle.active = false;
+                    particlePool.push(particle);
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                // Support both regular RGB string colors and cycling rainbow particles
+                if (particle.colorType === 'rainbow') {
+                    // Cycle hue over time; use global `time` and particle's hueOffset
+                    const hue = (time * 160 + particle.hueOffset) % 360;
+                    ctx.fillStyle = `hsla(${hue}, 100%, 60%, ${particle.life})`;
+                } else {
+                    ctx.fillStyle = `rgba(${particle.color}, ${particle.life})`;
+                }
+
+                ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
+            }
+        }
+
+        // Collision detection
+        function checkCollision(obj1, obj2) {
+            return obj1.x < obj2.x + obj2.width &&
+                   obj1.x + obj1.width > obj2.x &&
+                   obj1.y < obj2.y + obj2.height &&
+                   obj1.y + obj1.height > obj2.y;
+        }
+
+        // Update game logic
+        function update() {
+            if (!gameRunning) return;
+
+            // Move player (normalized keys: lowercased) using dtFactor so movement is framerate-independent
+            const moveAmount = player.speed * dtFactor;
+            if ((keys['arrowleft'] || keys['a']) && player.x > 0) {
+                player.x -= moveAmount;
+                if (player.x < 0) player.x = 0;
+            }
+            if ((keys['arrowright'] || keys['d']) && player.x < canvas.width - player.width) {
+                player.x += moveAmount;
+                if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+            }
+
+            // Update crystals
+            for (let i = crystals.length - 1; i >= 0; i--) {
+                crystals[i].y += crystals[i].speed * dtFactor;
+                crystals[i].glow = Math.sin(time * 3) * 0.3 + 0.7;
+
+                // Check collision with player
+                if (checkCollision(player, crystals[i])) {
+                    score += crystals[i].type.points;
+
+                    // Create particles with crystal's color
+                    let particleColor;
+                    switch(crystals[i].type.color) {
+                        case 'purple': particleColor = '170, 0, 255'; break;
+                        case 'gold': particleColor = '255, 170, 0'; break;
+                        case 'rainbow': particleColor = 'rainbow'; break;
+                        default: particleColor = '0, 255, 255';
+                    }
+
+                    createParticle(crystals[i].x + crystals[i].width/2, crystals[i].y + crystals[i].height/2, particleColor);
+                    crystals.splice(i, 1);
+                    scoreElement.textContent = `S C O R E : ${score.toString().padStart(6, '0')}`;
+
+                    // Increase difficulty (ramp every 100 points)
+                    if (score % 100 === 0) {
+                        gameSpeed += 0.5;
+                    }
+
+                    // Update high score if beaten
+                    if (score > highScore) {
+                        highScore = score;
+                        try {
+                            localStorage.setItem('neondrift_highscore', String(highScore));
+                        } catch (e) {
+                            // ignore storage errors (e.g., private mode)
+                        }
+                        highScoreElement.textContent = `H I G H : ${highScore.toString().padStart(6, '0')}`;
+                    }
+                }
+                // Remove if off screen
+                else if (crystals[i] && crystals[i].y > canvas.height) {
+                    crystals.splice(i, 1);
+                }
+            }
+
+            // Update meteors
+            for (let i = meteors.length - 1; i >= 0; i--) {
+                meteors[i].y += meteors[i].speed * dtFactor;
+
+                // Check collision with player (game over)
+                if (checkCollision(player, meteors[i])) {
+                    gameRunning = false;
+                    createParticle(player.x + player.width/2, player.y + player.height/2, '255, 0, 255');
+                    return;
+                }
+                // Remove if off screen
+                else if (meteors[i] && meteors[i].y > canvas.height) {
+                    meteors.splice(i, 1);
+                }
+            }
+
+            // Spawn new objects (keep probabilities per-frame but scaled by dt to keep spawn rate consistent)
+            const spawnScale = dtFactor; // approximate per-frame scaling
+            if (Math.random() < 0.025 * spawnScale) createCrystal();
+            if (Math.random() < 0.012 * spawnScale) createMeteor();
+        }
+
+        // Render everything
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawGrid();
+            drawParticles();
+            
+            if (gameRunning) {
+                drawPlayer();
+                crystals.forEach(drawCrystal);
+                meteors.forEach(drawMeteor);
+            } else {
+                // Game over screen
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#ff00ff';
+                ctx.shadowColor = '#ff00ff';
+                ctx.shadowBlur = 20;
+                ctx.font = 'bold 32px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText('G A M E', canvas.width/2, canvas.height/2 - 40);
+                ctx.fillText('O V E R', canvas.width/2, canvas.height/2 - 5);
+                
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 15;
+                ctx.font = 'bold 18px Orbitron';
+                ctx.fillText(`FINAL SCORE: ${score.toString().padStart(6, '0')}`, canvas.width/2, canvas.height/2 + 40);
+                
+                ctx.font = '12px Orbitron';
+                ctx.fillText('PRESS ANY KEY TO RESTART', canvas.width/2, canvas.height/2 + 80);
+                
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Restart game
+        function restartGame() {
+            score = 0;
+            gameSpeed = 2;
+            gameRunning = true;
+            crystals.length = 0;
+            meteors.length = 0;
+            particles.length = 0;
+            player.x = canvas.width / 2 - 25;
+            player.trail = [];
+            scoreElement.textContent = `S C O R E : ${score.toString().padStart(6, '0')}`;
+        }
+
+        function broadcastDebugData() {
+            const debugData = {
+                type: 'GAME_STATE',
+                fps: Math.round(fps),
+                score: score,
+                crystals: crystals.length,
+                meteors: meteors.length,
+                particles: particles.length,
+                gameSpeed: gameSpeed,
+                activeInputs: Object.keys(keys).filter(k => keys[k]),
+                spawning: { crystals: justSpawnedCrystal, meteors: justSpawnedMeteor }
+            };
+            
+            // Broadcast to any listening windows
+            window.postMessage(debugData, '*');
+        }
+
+        // Game loop (delta-time based)
+        let lastTimestamp = performance.now();
+        function gameLoop(timestamp) {
+            // compute dt in seconds
+            const dtSeconds = Math.min((timestamp - lastTimestamp) / 1000, 0.05); // clamp to avoid huge jumps
+            lastTimestamp = timestamp;
+
+            // frame-normalized factor (assume 60fps baseline)
+            dtFactor = dtSeconds * 60;
+
+            // advance global time in seconds (used for hue cycling)
+            time += dtSeconds;
+
+            update();
+            render();
+            broadcastDebugData(); // Add this line
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Handle restart
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) {
+                restartGame();
+            }
+        });
+
+        // Start the game
+        restartGame(); // Clear everything on load
+        lastTimestamp = performance.now();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

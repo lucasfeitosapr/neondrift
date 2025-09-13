@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>N E O N  D R I F T</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    
+    body {
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(180deg, #0a0a0f 0%, #1a0a2e 50%, #16213e 100%);
+        font-family: 'Orbitron', monospace;
+        color: #00ffff;
+        overflow: hidden;
+    }
+    
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 98px,
+                rgba(0, 255, 255, 0.03) 100px
+            );
+        pointer-events: none;
+        z-index: 1;
+    }
+    
+    canvas {
+        background: linear-gradient(180deg, #0f0518 0%, #1a0033 50%, #0f1419 100%);
+        border: 2px solid #ff00ff;
+        border-radius: 5px;
+        box-shadow: 
+            0 0 20px rgba(255, 0, 255, 0.5),
+            inset 0 0 20px rgba(0, 255, 255, 0.1);
+        position: relative;
+        z-index: 2;
+    }
+    
+    .game-container {
+        text-align: center;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .controls {
+        margin-top: 15px;
+        font-size: 12px;
+        color: #ff00ff;
+        text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
+    
+    .score {
+        margin-bottom: 10px;
+        font-size: 24px;
+        font-weight: 900;
+        color: #00ffff;
+        text-shadow: 0 0 20px rgba(0, 255, 255, 1);
+        letter-spacing: 3px;
+        text-transform: uppercase;
+    }
+    
+    .title {
+        font-size: 28px;
+        font-weight: 900;
+        margin-bottom: 20px;
+        color: #ff00ff;
+        text-shadow: 0 0 30px rgba(255, 0, 255, 1);
+        letter-spacing: 8px;
+        text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="title">N E O N  D R I F T</div>
+    <div class="score" id="score">S C O R E : 0</div>
+    <div class="score" id="highScore">H I G H : 000000</div>
+    <canvas id="gameCanvas" width="400" height="500"></canvas>
+    <div class="controls">
+      ← → or A/D to cruise<br>
+      Collect neon crystals • Dodge cyber meteors
+    </div>
+  </div>
+
+  <script type="module" src="/main.ts"></script>
+</body>
+</html>
