@@ -3,10 +3,13 @@ import { drawParticles } from './render/particles';
 import { drawEntities } from './render/entities';
 import { drawFloatingTexts, drawUI } from './render/ui';
 import { drawDebug } from './debug';
+import { GameState } from './types';
 
-export function renderScene(state: any) {
+export function renderScene(state: GameState & { debugEnabled?: boolean }) {
   const { ctx, canvas } = state;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const lw = (canvas as any)._cssWidth || canvas.width;
+  const lh = (canvas as any)._cssHeight || canvas.height;
+  ctx.clearRect(0, 0, lw, lh);
 
   drawGrid(state);
   drawParticles(state);
