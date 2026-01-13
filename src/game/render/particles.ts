@@ -1,6 +1,6 @@
-import { GameState } from '../types';
+import { GameState, DebugFlags } from '../types';
 
-export function drawParticles(state: GameState & { debug?: any }) {
+export function drawParticles(state: GameState & { debug?: DebugFlags }) {
   const { ctx } = state;
 
   for (let i = state.particles.length - 1; i >= 0; i--) {

@@ -1,7 +1,8 @@
 import { config } from './config';
+import { Crystal, CrystalType, Meteor } from './types';
 
-export function createCrystalEntity(canvas: HTMLCanvasElement, gameSpeed: number, score: number) {
-  const typesPool: any[] = [];
+export function createCrystalEntity(canvas: HTMLCanvasElement, gameSpeed: number, score: number): Crystal {
+  const typesPool: CrystalType[] = [];
   typesPool.push({ color: 'cyan', points: 10, colorHex: '#00ffff', colorRgb: '0, 255, 255' });
 
   if (score >= 150) {
@@ -27,7 +28,7 @@ export function createCrystalEntity(canvas: HTMLCanvasElement, gameSpeed: number
   };
 }
 
-export function createMeteorEntity(canvas: HTMLCanvasElement, gameSpeed: number) {
+export function createMeteorEntity(canvas: HTMLCanvasElement, gameSpeed: number): Meteor {
   return {
     x: Math.random() * (canvas.width - config.meteor.size),
     y: -config.meteor.size,

@@ -12,12 +12,20 @@
         padding: 20px;
         display: flex;
         justify-content: center;
-        align-items: center;
+        align-items: flex-start;
         min-height: 100vh;
         background: linear-gradient(180deg, #0a0a0f 0%, #1a0a2e 50%, #16213e 100%);
         font-family: 'Orbitron', monospace;
         color: #00ffff;
         overflow: hidden;
+        gap: 20px;
+    }
+    
+    .main-wrapper {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        margin-top: 20px;
     }
     
     body::before {
@@ -64,6 +72,100 @@
         text-transform: uppercase;
     }
     
+    .debug-panel {
+        width: 200px;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid #00ffff;
+        border-radius: 5px;
+        padding: 12px;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        font-size: 11px;
+        display: none;
+    }
+    
+    .debug-panel.visible {
+        display: block;
+    }
+    
+    .debug-panel h3 {
+        margin: 0 0 10px 0;
+        font-size: 12px;
+        color: #ff00ff;
+        text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
+        letter-spacing: 2px;
+        border-bottom: 1px solid #ff00ff33;
+        padding-bottom: 6px;
+    }
+    
+    .debug-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        color: #00ffff;
+    }
+    
+    .debug-row .label {
+        opacity: 0.7;
+    }
+    
+    .debug-row .value {
+        font-weight: bold;
+    }
+    
+    .debug-toggles {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid #ff00ff33;
+    }
+    
+    .debug-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 3px;
+        transition: background 0.15s;
+    }
+    
+    .debug-toggle:hover {
+        background: rgba(0, 255, 255, 0.1);
+    }
+    
+    .debug-toggle .key {
+        background: #222;
+        border: 1px solid #444;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        color: #888;
+    }
+    
+    .debug-toggle .status {
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    
+    .debug-toggle .status.on {
+        background: rgba(0, 255, 100, 0.3);
+        color: #00ff66;
+    }
+    
+    .debug-toggle .status.off {
+        background: rgba(255, 50, 50, 0.2);
+        color: #ff6666;
+    }
+    
+    .debug-hint {
+        margin-top: 10px;
+        font-size: 9px;
+        color: #666;
+        text-align: center;
+    }
+    
     .score {
         margin-bottom: 10px;
         font-size: 24px;
@@ -86,14 +188,80 @@
   </style>
 </head>
 <body>
-  <div class="game-container">
-    <div class="title">N E O N  D R I F T</div>
-    <div class="score" id="score">S C O R E : 0</div>
-    <div class="score" id="highScore">H I G H : 000000</div>
-    <canvas id="gameCanvas" width="400" height="500"></canvas>
-    <div class="controls">
-      ← → or A/D to cruise<br>
-      Collect neon crystals • Dodge cyber meteors
+  <div class="main-wrapper">
+    <div class="game-container">
+      <div class="title">N E O N  D R I F T</div>
+      <div class="score" id="score">S C O R E : 0</div>
+      <div class="score" id="highScore">H I G H : 000000</div>
+      <canvas id="gameCanvas" width="400" height="500"></canvas>
+      <div class="controls">
+        ← → or A/D to cruise • ↑ ↓ or W/S to move vertically<br>
+        Collect neon crystals • Dodge cyber meteors
+      </div>
+    </div>
+    
+    <div class="debug-panel visible" id="debugPanel">
+      <h3>⚡ DEBUG</h3>
+      <div class="debug-row">
+        <span class="label">FPS</span>
+        <span class="value" id="debugFps">60</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">dtFactor</span>
+        <span class="value" id="debugDt">1.00</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">Particles</span>
+        <span class="value" id="debugParticles">0</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">Speed</span>
+        <span class="value" id="debugSpeed">1.00</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">Crystals</span>
+        <span class="value" id="debugCrystals">0</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">Meteors</span>
+        <span class="value" id="debugMeteors">0</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">Pickups</span>
+        <span class="value" id="debugPickups">0</span>
+      </div>
+      <div class="debug-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+        <span class="label">Magnet Stacks</span>
+        <span class="value" id="debugMagnetStacks" style="color: #ff6644;">0</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">Magnet Rate</span>
+        <span class="value" id="debugMagnetRate" style="color: #ff6644;">100%</span>
+      </div>
+      <div class="debug-row">
+        <span class="label">Magnet Time</span>
+        <span class="value" id="debugMagnetTime" style="color: #ff6644;">-</span>
+      </div>
+      
+      <div class="debug-toggles">
+        <div class="debug-toggle" id="toggleGrid">
+          <span>Grid</span>
+          <span class="key">G</span>
+          <span class="status on" id="statusGrid">ON</span>
+        </div>
+        <div class="debug-toggle" id="toggleBoxes">
+          <span>Boxes</span>
+          <span class="key">B</span>
+          <span class="status off" id="statusBoxes">OFF</span>
+        </div>
+        <div class="debug-toggle" id="toggleParticles">
+          <span>Particles</span>
+          <span class="key">P</span>
+          <span class="status on" id="statusParticles">ON</span>
+        </div>
+      </div>
+      
+      <div class="debug-hint">Press <strong>`</strong> to toggle panel</div>
     </div>
   </div>
 

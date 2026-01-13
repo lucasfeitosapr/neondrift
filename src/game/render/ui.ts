@@ -1,4 +1,10 @@
-import { GameState } from '../types';
+import { GameState, PowerUpId } from '../types';
+
+const hudPalette: Record<PowerUpId, string> = {
+  magnet: '#7ce7ff',
+  time_slow: '#c59bff',
+  chain_lightning: '#ffd166'
+};
 
 export function drawFloatingTexts(state: GameState & { dtFactor: number }) {
   const { ctx } = state;
@@ -20,10 +26,36 @@ export function drawFloatingTexts(state: GameState & { dtFactor: number }) {
 }
 
 export function drawUI(state: GameState & { gameRunning: boolean; score: number; highScore: number }) {
-  const { ctx, canvas } = state;
+  const { ctx, canvas, activePowerUps, gameRunning } = state;
+  const lw = (canvas as any)._cssWidth || canvas.width;
+  const lh = (canvas as any)._cssHeight || canvas.height;
+
+  // Active power-up HUD (top-left)
+  if (gameRunning) {
+    ctx.save();
+    ctx.font = '12px Orbitron';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#7ce7ff';
+    ctx.shadowColor = '#7ce7ff';
+    ctx.shadowBlur = 12;
+    ctx.fillText('Power-Ups', 10, 20);
+    ctx.shadowBlur = 0;
+    activePowerUps.forEach((p, idx) => {
+      const remainingMs = p.expiresAt ? Math.max(0, p.expiresAt - performance.now()) : 0;
+      const remaining = p.expiresAt ? `${(remainingMs / 1000).toFixed(1)}s` : '∞';
+      const color = hudPalette[p.id as PowerUpId] || '#a7fffb';
+      const label = `${p.id} ${remaining}`;
+      ctx.fillStyle = color;
+      ctx.fillText(label.toUpperCase(), 10, 40 + idx * 16);
+    });
+    if (activePowerUps.length === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText('none', 10, 40);
+    }
+    ctx.restore();
+  }
+
   if (!state.gameRunning) {
-    const lw = (canvas as any)._cssWidth || canvas.width;
-    const lh = (canvas as any)._cssHeight || canvas.height;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, lw, lh);
     ctx.fillStyle = '#ff00ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 20; ctx.font = 'bold 32px Orbitron'; ctx.textAlign = 'center'; ctx.fillText('G A M E', lw/2, lh/2 - 40); ctx.fillText('O V E R', lw/2, lh/2 - 5);
     ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15; ctx.font = 'bold 18px Orbitron'; ctx.fillText(`FINAL SCORE: ${state.score.toString().padStart(6, '0')}`, lw/2, lh/2 + 40);

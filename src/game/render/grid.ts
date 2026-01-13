@@ -1,7 +1,7 @@
-import { GameState } from '../types';
+import { GameState, DebugFlags } from '../types';
 
-export function drawGrid(state: any) {
-  const { ctx, canvas, gameSpeed, gridLines, debug } = state as GameState & { debug?: any };
+export function drawGrid(state: GameState & { debug?: DebugFlags }) {
+  const { ctx, canvas, gameSpeed, gridLines, debug } = state;
   if (debug && debug.grid === false) return;
 
   const lw = (canvas as any)._cssWidth || canvas.width;

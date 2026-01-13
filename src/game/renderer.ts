@@ -1,6 +1,6 @@
 import { drawGrid } from './render/grid';
 import { drawParticles } from './render/particles';
-import { drawEntities } from './render/entities';
+import { drawEntities, drawChainLightning } from './render/entities';
 import { drawFloatingTexts, drawUI } from './render/ui';
 import { drawDebug } from './debug';
 import { GameState } from './types';
@@ -13,6 +13,7 @@ export function renderScene(state: GameState & { debugEnabled?: boolean }) {
 
   drawGrid(state);
   drawParticles(state);
+  drawChainLightning(state); // Draw lightning UNDER entities for layering
   drawEntities(state);
   drawFloatingTexts(state);
   drawUI(state);
