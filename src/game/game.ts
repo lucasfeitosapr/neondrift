@@ -1,7 +1,7 @@
 import { config } from './config';
 import { initInput, keys } from './input';
 import { renderScene } from './renderer';
-import { spawnCrystal, spawnMeteor } from './spawner';
+import { spawnCrystal, spawnMeteor, spawnRevengeMeteor } from './spawner';
 import { GameState, Particle, ParticleColorMode } from './types';
 import { createState, defaultModifiers } from './state';
 import { activatePowerUp, tickPowerUps } from './powerups/system';
@@ -42,8 +42,25 @@ export function startGame(): void {
   // Responsive DPR-aware resize handler: set CSS size and high-DPI backing buffer
   function resizeCanvas() {
     const padding = 40;
-    const cssWidth = Math.max(320, Math.min(260, window.innerWidth - padding));
-    const cssHeight = Math.max(600, Math.min(1200, Math.floor(window.innerHeight * 0.78)));
+    // Mobile-friendly sizing: fit canvas to available space
+    const availableWidth = window.innerWidth - padding;
+    const availableHeight = window.innerHeight - 180; // Leave room for title/controls
+    
+    // Maintain aspect ratio (400:500 = 0.8)
+    const targetAspect = 0.8;
+    let cssWidth = Math.min(400, availableWidth); // Max 400px, or screen width
+    let cssHeight = cssWidth / targetAspect;
+    
+    // If height is too tall, constrain by height instead
+    if (cssHeight > availableHeight) {
+      cssHeight = availableHeight;
+      cssWidth = cssHeight * targetAspect;
+    }
+    
+    // Minimum sizes for playability
+    cssWidth = Math.max(280, cssWidth);
+    cssHeight = Math.max(350, cssHeight);
+    
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     (canvas as any)._cssWidth = cssWidth;
@@ -80,18 +97,20 @@ export function startGame(): void {
     return p;
   }
 
-  function createParticle(x: number, y: number, color: string | 'rainbow') {
+  function createParticle(x: number, y: number, color: string | 'rainbow', customDecay?: number) {
     if (color === 'rainbow') {
+      const decay = customDecay ?? config.particles.DECAY_RAINBOW;
       for (let i = 0; i < 16; i++) {
         const vx = (Math.random() - 0.5) * 8;
         const vy = (Math.random() - 0.5) * 8;
-        spawnParticleFromPool(x, y, vx, vy, 1, 0.04, Math.random() * 4 + 1.5, null, 'rainbow', Math.random() * 360);
+        spawnParticleFromPool(x, y, vx, vy, 1, decay, Math.random() * 4 + 1.5, null, 'rainbow', Math.random() * 360);
       }
     } else {
+      const decay = customDecay ?? config.particles.DECAY_NORMAL;
       for (let i = 0; i < 10; i++) {
         const vx = (Math.random() - 0.5) * 6;
         const vy = (Math.random() - 0.5) * 6;
-        spawnParticleFromPool(x, y, vx, vy, 1, 0.03, Math.random() * 3 + 1.5, color as string, 'rgb', 0);
+        spawnParticleFromPool(x, y, vx, vy, 1, decay, Math.random() * 3 + 1.5, color as string, 'rgb', 0);
       }
     }
   }
@@ -100,6 +119,20 @@ export function startGame(): void {
 
   function checkCollision(obj1: { x: number; y: number; width: number; height: number; }, obj2: { x: number; y: number; width: number; height: number; }) {
     return obj1.x < obj2.x + obj2.width && obj1.x + obj1.width > obj2.x && obj1.y < obj2.y + obj2.height && obj1.y + obj1.height > obj2.y;
+  }
+  
+  // Player hitbox collision - uses shrunk hitbox to match triangle shape
+  function checkPlayerCollision(player: { x: number; y: number; width: number; height: number; }, obj: { x: number; y: number; width: number; height: number; }) {
+    const topInset = config.PLAYER_HITBOX_TOP_INSET;
+    const sideInset = config.PLAYER_HITBOX_SIDE_INSET;
+    
+    // Shrunk player hitbox
+    const px = player.x + sideInset;
+    const py = player.y + topInset;
+    const pw = player.width - sideInset * 2;
+    const ph = player.height - topInset;
+    
+    return px < obj.x + obj.width && px + pw > obj.x && py < obj.y + obj.height && py + ph > obj.y;
   }
 
   function update() {
@@ -113,6 +146,36 @@ export function startGame(): void {
       state.chainLightningArcs[i].life -= 0.03 * state.dtFactor;
       if (state.chainLightningArcs[i].life <= 0) {
         state.chainLightningArcs.splice(i, 1);
+      }
+    }
+    
+    // Decay time slow ripples
+    for (let i = state.timeSlowRipples.length - 1; i >= 0; i--) {
+      const ripple = state.timeSlowRipples[i];
+      if (now - ripple.startTime >= ripple.durationMs) {
+        state.timeSlowRipples.splice(i, 1);
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // PROCESS PENDING REVENGE METEORS - Time to pay the debt! 😈
+    // ═══════════════════════════════════════════════════════════════
+    for (let i = state.pendingRevengeMeteors.length - 1; i >= 0; i--) {
+      const pending = state.pendingRevengeMeteors[i];
+      
+      // Show warning flash shortly before spawn
+      if (!pending.warningShown && config.timeSlow.revenge.WARNING_FLASH) {
+        const timeUntilSpawn = pending.spawnAt - now;
+        if (timeUntilSpawn <= 200) { // Flash 200ms before spawn
+          pending.warningShown = true;
+          // The warning will be rendered by the render system
+        }
+      }
+      
+      // Time to spawn!
+      if (now >= pending.spawnAt) {
+        spawnRevengeMeteor(state, pending.targetX, pending.targetY, pending.speed);
+        state.pendingRevengeMeteors.splice(i, 1);
       }
     }
 
@@ -226,7 +289,7 @@ export function startGame(): void {
 
     for (let i = state.meteors.length - 1; i >= 0; i--) {
       state.meteors[i].y += state.meteors[i].speed * state.dtFactor * state.modifiers.gameSpeed;
-      if (checkCollision(state.player, state.meteors[i])) { state.gameRunning = false; createParticle(state.player.x + state.player.width/2, state.player.y + state.player.height/2, '255, 0, 255'); return; }
+      if (checkPlayerCollision(state.player, state.meteors[i])) { state.gameRunning = false; createParticle(state.player.x + state.player.width/2, state.player.y + state.player.height/2, '255, 0, 255', config.particles.DECAY_EXPLOSION); return; }
       else if (state.meteors[i] && state.meteors[i].y > logicalHeight()) { state.meteors.splice(i, 1); }
     }
 
@@ -266,9 +329,9 @@ export function startGame(): void {
         if (!tooClose) {
           // Determine style based on config
           const styles: Array<'horseshoe' | 'vortex' | 'ring' | 'field'> = ['horseshoe', 'vortex', 'ring', 'field'];
-          const style = config.MAGNET_STYLE === 'random' 
+          const style = config.magnet.STYLE === 'random' 
             ? styles[Math.floor(Math.random() * styles.length)]
-            : config.MAGNET_STYLE;
+            : config.magnet.STYLE;
           
           spawnPowerUpPickup(state, 'magnet', x, spawnY, Math.max(3, state.gameSpeed * 1.2), style);
           state.lastMagnetSpawnTimestamp = now;
@@ -297,6 +360,33 @@ export function startGame(): void {
         }
       }
     }
+    
+    // Time Slow spawning (same rarity as chain lightning)
+    const timeSlowSpawnRate = config.SPAWN_TIME_SLOW_RATE * spawnScale;
+    if (Math.random() < timeSlowSpawnRate) {
+      const { MAX_POWERUP_PICKUPS, MIN_PICKUP_DISTANCE_X, PICKUP_DISTANCE_CHECK_Y } = config.spawning;
+      
+      if (state.powerUpPickups.length < MAX_POWERUP_PICKUPS) {
+        const x = Math.random() * (lw - 22);
+        const spawnY = -25;
+        
+        const tooClose = state.powerUpPickups.some(p => {
+          const verticallyClose = Math.abs(p.y - spawnY) < PICKUP_DISTANCE_CHECK_Y;
+          const horizontallyClose = Math.abs(p.x - x) < MIN_PICKUP_DISTANCE_X;
+          return verticallyClose && horizontallyClose;
+        });
+        
+        if (!tooClose) {
+          // Determine style based on config
+          const styles: Array<'clock' | 'hourglass'> = ['clock', 'hourglass'];
+          const timeSlowStyle = config.TIME_SLOW_STYLE === 'random'
+            ? styles[Math.floor(Math.random() * styles.length)]
+            : config.TIME_SLOW_STYLE;
+          
+          spawnPowerUpPickup(state, 'time_slow', x, spawnY, Math.max(3, state.gameSpeed * 1.0), undefined, timeSlowStyle);
+        }
+      }
+    }
   }
 
   function restartGame() {
@@ -311,7 +401,7 @@ export function startGame(): void {
     }
     state.player.trail = [];
     state.floatingTexts.length = 0; state.comboCount = 0; state.lastCollectTimestamp = 0;
-    state.activePowerUps.length = 0; state.powerUpPickups.length = 0; state.chainLightningArcs.length = 0; state.modifiers = { ...defaultModifiers };
+    state.activePowerUps.length = 0; state.powerUpPickups.length = 0; state.chainLightningArcs.length = 0; state.timeSlowRipples.length = 0; state.pendingRevengeMeteors.length = 0; state.modifiers = { ...defaultModifiers };
     scoreElement.textContent = `S C O R E : ${state.score.toString().padStart(6, '0')}`;
   }
 
@@ -320,7 +410,7 @@ export function startGame(): void {
   const initialY = config.ENABLE_VERTICAL_MOVEMENT 
     ? logicalHeight() - config.PLAYER_VERTICAL_PADDING - 30 // 30 = player height
     : logicalHeight() - 60;
-  state.player = { x: logicalWidth() / 2 - 25, y: initialY, width: 50, height: 30, speed: 6, trail: [] };
+  state.player = { x: logicalWidth() / 2 - 25, y: initialY, width: 50, height: 30, speed: config.PLAYER_SPEED, trail: [] };
 
   let lastTimestamp = performance.now();
   let fps = 60;
@@ -402,12 +492,31 @@ export function startGame(): void {
 
   let lastFpsTimestamp = performance.now();
   let fpsAccumulator = 0;
+  
+  // FPS limiter settings
+  const targetFrameTime = config.TARGET_FPS > 0 ? 1000 / config.TARGET_FPS : 0;
+  let frameAccumulator = 0;
 
   function gameLoop(timestamp: number) {
-    const dtSeconds = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
+    const elapsed = timestamp - lastTimestamp;
+    
+    // FPS limiter: skip frame if running faster than target
+    if (targetFrameTime > 0) {
+      frameAccumulator += elapsed;
+      if (frameAccumulator < targetFrameTime) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      frameAccumulator -= targetFrameTime;
+      // Prevent spiral of death if we fall behind
+      if (frameAccumulator > targetFrameTime * 2) {
+        frameAccumulator = 0;
+      }
+    }
+    
+    const dtSeconds = Math.min(elapsed / 1000, 0.05);
     lastTimestamp = timestamp;
     state.dtFactor = dtSeconds * 60;
-    state.time += dtSeconds;
 
     const now = performance.now();
     const frameDt = now - lastFpsTimestamp;
@@ -415,6 +524,9 @@ export function startGame(): void {
     lastFpsTimestamp = now;
 
     update();
+    
+    // Scale animation time by game speed (slow-mo affects rotations, pulses, etc.)
+    state.time += dtSeconds * state.modifiers.gameSpeed;
 
     // render via renderer module (pass the whole state, but disable canvas debug overlay)
     renderScene(Object.assign({ debugEnabled: false }, state));

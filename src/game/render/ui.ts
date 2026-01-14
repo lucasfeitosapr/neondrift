@@ -59,6 +59,6 @@ export function drawUI(state: GameState & { gameRunning: boolean; score: number;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, lw, lh);
     ctx.fillStyle = '#ff00ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 20; ctx.font = 'bold 32px Orbitron'; ctx.textAlign = 'center'; ctx.fillText('G A M E', lw/2, lh/2 - 40); ctx.fillText('O V E R', lw/2, lh/2 - 5);
     ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15; ctx.font = 'bold 18px Orbitron'; ctx.fillText(`FINAL SCORE: ${state.score.toString().padStart(6, '0')}`, lw/2, lh/2 + 40);
-    ctx.font = '12px Orbitron'; ctx.fillText('PRESS ANY KEY TO RESTART', lw/2, lh/2 + 80); ctx.shadowBlur = 0;
+    ctx.font = '12px Orbitron'; ctx.fillText('PRESS ENTER KEY TO RESTART', lw/2, lh/2 + 80); ctx.shadowBlur = 0;
   }
 }

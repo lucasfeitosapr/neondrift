@@ -99,6 +99,7 @@ export interface PowerUpInstance {
 }
 
 export type MagnetStyle = 'horseshoe' | 'vortex' | 'ring' | 'field';
+export type TimeSlowStyle = 'clock' | 'hourglass';
 
 export interface PowerUpPickup {
   id: PowerUpId;
@@ -107,7 +108,8 @@ export interface PowerUpPickup {
   width: number;
   height: number;
   speed: number;
-  style?: MagnetStyle; // Visual style for rendering
+  style?: MagnetStyle; // Visual style for magnet
+  timeSlowStyle?: TimeSlowStyle; // Visual style for time_slow
 }
 
 export interface Modifiers {
@@ -141,6 +143,28 @@ export interface DebugFlags {
   particles: boolean;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// TIME SLOW VISUAL EFFECTS
+// ═══════════════════════════════════════════════════════════════
+export interface TimeSlowRipple {
+  x: number;
+  y: number;
+  startTime: number;
+  maxRadius: number;
+  durationMs: number;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REVENGE METEOR - Delayed targeted meteor
+// ═══════════════════════════════════════════════════════════════
+export interface PendingRevengeMeteor {
+  spawnAt: number;        // Timestamp when meteor should spawn
+  targetX: number;        // Player X position at time of trigger (center)
+  targetY: number;        // Player Y position at time of trigger (center)
+  speed: number;          // Pre-calculated speed for this meteor
+  warningShown: boolean;  // Has the warning flash been shown?
+}
+
 export interface GameState {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -168,4 +192,6 @@ export interface GameState {
   activePowerUps: PowerUpInstance[];
   powerUpPickups: PowerUpPickup[];
   chainLightningArcs: ChainLightningArc[];
+  timeSlowRipples: TimeSlowRipple[];
+  pendingRevengeMeteors: PendingRevengeMeteor[];
 }

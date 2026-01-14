@@ -1,6 +1,6 @@
 import { drawGrid } from './render/grid';
 import { drawParticles } from './render/particles';
-import { drawEntities, drawChainLightning } from './render/entities';
+import { drawEntities, drawChainLightning, drawTimeSlowEffects } from './render/entities';
 import { drawFloatingTexts, drawUI } from './render/ui';
 import { drawDebug } from './debug';
 import { GameState } from './types';
@@ -16,6 +16,7 @@ export function renderScene(state: GameState & { debugEnabled?: boolean }) {
   drawChainLightning(state); // Draw lightning UNDER entities for layering
   drawEntities(state);
   drawFloatingTexts(state);
+  drawTimeSlowEffects(state); // Draw scanlines/ripple OVER entities but under UI
   drawUI(state);
   drawDebug({ ctx: state.ctx, fps: state.fps || 60, dtFactor: state.dtFactor, particles: state.particles, gameSpeed: state.gameSpeed, canvas: state.canvas, debugEnabled: state.debugEnabled });
 }

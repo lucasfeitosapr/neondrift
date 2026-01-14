@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>N E O N  D R I F T</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
@@ -55,6 +57,11 @@
             inset 0 0 20px rgba(0, 255, 255, 0.1);
         position: relative;
         z-index: 2;
+        /* Mobile touch handling - prevent scroll/zoom gestures on canvas */
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
     }
     
     .game-container {
@@ -185,6 +192,61 @@
         letter-spacing: 8px;
         text-transform: uppercase;
     }
+    
+    /* ═══════════════════════════════════════════════════════════════
+       MOBILE RESPONSIVE STYLES
+       ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 600px) {
+        body {
+            padding: 10px;
+            align-items: center;
+        }
+        
+        .main-wrapper {
+            flex-direction: column;
+            margin-top: 10px;
+            gap: 10px;
+        }
+        
+        .title {
+            font-size: 18px;
+            letter-spacing: 4px;
+            margin-bottom: 8px;
+        }
+        
+        .score {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .controls {
+            font-size: 10px;
+            padding: 0 10px;
+        }
+        
+        /* Hide debug panel on mobile by default */
+        .debug-panel {
+            display: none !important;
+        }
+    }
+    
+    /* Touch hint for mobile users */
+    .touch-hint {
+        display: none;
+        font-size: 11px;
+        color: #00ffff;
+        opacity: 0.7;
+        margin-top: 8px;
+    }
+    
+    @media (pointer: coarse) {
+        .touch-hint {
+            display: block;
+        }
+        .controls {
+            display: none; /* Hide keyboard controls on touch devices */
+        }
+    }
   </style>
 </head>
 <body>
@@ -197,6 +259,10 @@
       <div class="controls">
         ← → or A/D to cruise • ↑ ↓ or W/S to move vertically<br>
         Collect neon crystals • Dodge cyber meteors
+      </div>
+      <div class="touch-hint">
+        Touch &amp; drag to move • Tap to restart<br>
+        Collect crystals • Dodge meteors
       </div>
     </div>
     

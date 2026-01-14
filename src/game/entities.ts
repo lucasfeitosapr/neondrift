@@ -3,15 +3,21 @@ import { Crystal, CrystalType, Meteor } from './types';
 
 export function createCrystalEntity(canvas: HTMLCanvasElement, gameSpeed: number, score: number): Crystal {
   const typesPool: CrystalType[] = [];
+  const thresholds = config.crystal.thresholds;
+  
+  // Cyan crystals always available
   typesPool.push({ color: 'cyan', points: 10, colorHex: '#00ffff', colorRgb: '0, 255, 255' });
 
-  if (score >= 150) {
+  // Higher tier crystals unlock at score thresholds
+  if (score >= thresholds.purple) {
     for (let i = 0; i < 4; i++) typesPool.push({ color: 'purple', points: 20, colorHex: '#aa00ff', colorRgb: '170, 0, 255' });
   }
-  if (score >= 350) {
+  if (score >= thresholds.gold) {
     for (let i = 0; i < 3; i++) typesPool.push({ color: 'gold', points: 30, colorHex: '#ffaa00', colorRgb: '255, 170, 0' });
   }
-  if (score >= 500) typesPool.push({ color: 'rainbow', points: 50, colorHex: null, colorRgb: '255, 255, 255' });
+  if (score >= thresholds.rainbow) {
+    typesPool.push({ color: 'rainbow', points: 50, colorHex: null, colorRgb: '255, 255, 255' });
+  }
 
   const chosenType = typesPool[Math.floor(Math.random() * typesPool.length)];
 

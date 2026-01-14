@@ -4,7 +4,9 @@ import { ChainLightningArc, Crystal, CrystalColor, GameState, Particle, PowerUpD
 // ═══════════════════════════════════════════════════════════════
 // PARTICLE HELPER - Spawn particles directly from power-ups
 // ═══════════════════════════════════════════════════════════════
-function spawnParticleBurst(state: GameState, x: number, y: number, colorRgb: string, count = 12, isRainbow = false) {
+function spawnParticleBurst(state: GameState, x: number, y: number, colorRgb: string, count = 12, isRainbow = false, decay?: number) {
+  const baseDecay = decay ?? config.particles.DECAY_CRYSTAL_CHAIN;
+  
   for (let i = 0; i < count; i++) {
     const p: Particle = state.particlePool.borrow();
     p.active = true;
@@ -16,7 +18,7 @@ function spawnParticleBurst(state: GameState, x: number, y: number, colorRgb: st
     p.vx = Math.cos(angle) * speed;
     p.vy = Math.sin(angle) * speed;
     p.life = 1;
-    p.decay = 0.035 + Math.random() * 0.02;
+    p.decay = baseDecay + Math.random() * 0.01; // slight variation
     p.size = 2 + Math.random() * 3;
     
     if (isRainbow) {
@@ -84,6 +86,43 @@ function generateLightningSegments(
   return path;
 }
 
+/** Check if a point is within distance of a line segment */
+function pointToSegmentDistance(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSq = dx * dx + dy * dy;
+  
+  if (lengthSq === 0) return Math.hypot(px - x1, py - y1);
+  
+  // Project point onto line, clamped to segment
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lengthSq));
+  const projX = x1 + t * dx;
+  const projY = y1 + t * dy;
+  
+  return Math.hypot(px - projX, py - projY);
+}
+
+/** Check if a meteor is hit by any arc segment */
+function isMeteorHitByArcs(
+  meteor: { x: number; y: number; width: number; height: number },
+  arcs: ChainLightningArc[],
+  hitRadius = 35 // How close the lightning needs to be to hit
+): boolean {
+  const mx = meteor.x + meteor.width / 2;
+  const my = meteor.y + meteor.height / 2;
+  
+  for (const arc of arcs) {
+    // Check each segment of the arc
+    for (let i = 0; i < arc.segments.length - 1; i++) {
+      const s1 = arc.segments[i];
+      const s2 = arc.segments[i + 1];
+      const dist = pointToSegmentDistance(mx, my, s1.x, s1.y, s2.x, s2.y);
+      if (dist < hitRadius) return true;
+    }
+  }
+  return false;
+}
+
 /** Sort crystals for chaining (nearest-neighbor chain from player) */
 function sortCrystalsForChain(crystals: Crystal[], playerX: number, playerY: number): Crystal[] {
   if (crystals.length === 0) return [];
@@ -129,22 +168,25 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
     get stacking() {
       return config.features.MAGNET_STACKS_DURATION ? 'extend' : 'stack';
     },
-    maxStacks: 3, // At max stacks, triggers SUPER MAGNET mode!
+    get maxStacks() {
+      return config.magnet.MAX_STACKS;
+    },
     applyModifiers: (mods, _state, instance) => {
       // ═══════════════════════════════════════════════════════════
       // PROGRESSIVE MAGNET TIERS
       // Tier 1 (1 stack): Range 180, gentle pull
-      // Tier 2 (2 stacks): Range 280, strong pull
-      // Tier 3 (3 stacks): Range INFINITE, SUPER MAGNET!
+      // Tier 2+ (2+ stacks): Range 280, strong pull
+      // Super Magnet threshold: Range INFINITE, SUPER MAGNET!
       // ═══════════════════════════════════════════════════════════
+      const superMagnetThreshold = config.magnet.SUPER_MAGNET_THRESHOLD;
       mods.magnetPullTier = instance.stacks;
       
-      if (instance.stacks >= 3) {
-        // TIER 3: SUPER MAGNET - everything on screen rushes to you!
+      if (instance.stacks >= superMagnetThreshold) {
+        // SUPER MAGNET - everything on screen rushes to you!
         mods.magnetRange = 9999;
         mods.superMagnet = true;
-      } else if (instance.stacks === 2) {
-        // TIER 2: Strong pull, bigger range
+      } else if (instance.stacks >= 2) {
+        // TIER 2+: Strong pull, bigger range
         mods.magnetRange = Math.max(mods.magnetRange, 280);
       } else {
         // TIER 1: Normal pull, base range
@@ -158,8 +200,8 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
       }
     },
     onActivate: (state, instance, _now) => {
-      // Trigger visual feedback when hitting max stacks
-      if (instance.stacks >= 3) {
+      // Trigger visual feedback when hitting super magnet threshold
+      if (instance.stacks >= config.magnet.SUPER_MAGNET_THRESHOLD) {
         const x = state.player ? state.player.x + state.player.width / 2 : state.canvas.width / 2;
         const y = state.player ? state.player.y - 20 : 50;
         state.floatingTexts.push({ x, y, text: '⚡ SUPER MAGNET ⚡', life: 1.5, color: '#ff6644', vy: -0.5 });
@@ -170,12 +212,108 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
     id: 'time_slow',
     displayName: 'Time Slow',
     kind: 'buff',
-    durationMs: 4500,
+    get durationMs() {
+      return config.timeSlow.DURATION_MS;
+    },
     stacking: 'refresh',
     applyModifiers: (mods) => {
-      mods.gameSpeed *= 0.6;
-      mods.spawnRateCrystal *= 0.8;
-      mods.spawnRateMeteor *= 0.8;
+      mods.gameSpeed *= config.timeSlow.SPEED_MULTIPLIER;
+      mods.spawnRateCrystal *= config.timeSlow.SPAWN_RATE_CRYSTAL;
+      mods.spawnRateMeteor *= config.timeSlow.SPAWN_RATE_METEOR;
+    },
+    onActivate: (state, instance, now) => {
+      if (!state.player) return;
+      
+      const playerX = state.player.x + state.player.width / 2;
+      const playerY = state.player.y + state.player.height / 2;
+      
+      // ═══════════════════════════════════════════════════════════════
+      // REVENGE TRACKING - Store starting score to count crystals later
+      // ═══════════════════════════════════════════════════════════════
+      if (!instance.data) instance.data = {};
+      instance.data.startScore = state.score;
+      instance.data.startCrystalCount = state.crystals.length;
+      
+      // Show activation text
+      state.floatingTexts.push({
+        x: playerX,
+        y: state.player.y - 30,
+        text: '⏱ SLOW MOTION ⏱',
+        life: 1.5,
+        color: '#c59bff',
+        vy: -0.5
+      });
+      
+      // Spawn ripple effect if enabled
+      if (config.timeSlow.EFFECT_RIPPLE) {
+        state.timeSlowRipples.push({
+          x: playerX,
+          y: playerY,
+          startTime: now,
+          maxRadius: config.timeSlow.RIPPLE_MAX_RADIUS,
+          durationMs: config.timeSlow.RIPPLE_DURATION_MS
+        });
+      }
+      
+      // Particle burst (purple/cyan time particles)
+      spawnParticleBurst(state, playerX, playerY, '197, 155, 255', 16, false, 0.025);
+    },
+    onExpire: (state, instance, now) => {
+      if (!state.player) return;
+      
+      const revenge = config.timeSlow.revenge;
+      if (!revenge.ENABLED) return;
+      
+      // ═══════════════════════════════════════════════════════════════
+      // REVENGE CALCULATION - The price of manipulating time! 😈
+      // ═══════════════════════════════════════════════════════════════
+      const startScore = instance.data?.startScore ?? state.score;
+      const scoreGained = state.score - startScore;
+      
+      // Estimate crystals collected (rough: 10-50 points per crystal)
+      // Using average of ~20 points per crystal as approximation
+      const estimatedCrystals = Math.floor(scoreGained / 20);
+      
+      // Calculate revenge chance
+      const chance = Math.min(
+        revenge.MAX_CHANCE,
+        revenge.BASE_CHANCE + (estimatedCrystals * revenge.CHANCE_PER_CRYSTAL)
+      );
+      
+      // Roll the dice!
+      const roll = Math.random();
+      if (roll > chance) {
+        // Lucky escape!
+        return;
+      }
+      
+      // ═══════════════════════════════════════════════════════════════
+      // REVENGE TRIGGERED - Queue the meteor!
+      // ═══════════════════════════════════════════════════════════════
+      const playerX = state.player.x + state.player.width / 2;
+      const playerY = state.player.y + state.player.height / 2;
+      
+      // Calculate random speed within range
+      const speed = revenge.SPEED_MIN + Math.random() * (revenge.SPEED_MAX - revenge.SPEED_MIN);
+      
+      // Queue the revenge meteor with delay
+      state.pendingRevengeMeteors.push({
+        spawnAt: now + revenge.DELAY_MS,
+        targetX: playerX,
+        targetY: playerY,
+        speed: speed,
+        warningShown: false
+      });
+      
+      // Ominous message (optional - player might not notice in time!)
+      state.floatingTexts.push({
+        x: playerX,
+        y: state.player.y - 40,
+        text: '⚠️ TIME DEBT ⚠️',
+        life: 0.8,
+        color: revenge.WARNING_COLOR,
+        vy: -0.6
+      });
     }
   },
   chain_lightning: {
@@ -249,6 +387,33 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
       // Add all arcs to state
       state.chainLightningArcs.push(...arcs);
       
+      // ⚡ DESTROY METEORS caught in the lightning path! ⚡
+      let meteorsDestroyed = 0;
+      for (let i = state.meteors.length - 1; i >= 0; i--) {
+        const meteor = state.meteors[i];
+        if (isMeteorHitByArcs(meteor, arcs)) {
+          const mx = meteor.x + meteor.width / 2;
+          const my = meteor.y + meteor.height / 2;
+          
+          // Particle explosion (magenta for meteors) - longer decay for dramatic effect
+          spawnParticleBurst(state, mx, my, '255, 0, 255', 16, false, config.particles.DECAY_METEOR_ZAP);
+          
+          // Floating text
+          state.floatingTexts.push({
+            x: mx,
+            y: my - 10,
+            text: '💥 ZAP!',
+            life: 0.8,
+            color: '#ff00ff',
+            vy: -0.5
+          });
+          
+          // Remove meteor
+          state.meteors.splice(i, 1);
+          meteorsDestroyed++;
+        }
+      }
+      
       // Award points and remove crystals - show floating text at EACH crystal!
       let totalPoints = 0;
       const chainBonus = 1 + (sortedCrystals.length - 1) * 0.25; // +25% per crystal in chain
@@ -285,9 +450,10 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
       
       // Header text at player showing chain summary
       const colorName = targetColor.toUpperCase();
+      const meteorText = meteorsDestroyed > 0 ? ` +${meteorsDestroyed}💥` : '';
       state.floatingTexts.push({ 
         x: playerX, y: state.player.y - 30, 
-        text: `⚡ ${colorName} CHAIN x${sortedCrystals.length} ⚡`, 
+        text: `⚡ ${colorName} CHAIN x${sortedCrystals.length}${meteorText} ⚡`, 
         life: 1.5, color: colorHex, vy: -0.5 
       });
     }

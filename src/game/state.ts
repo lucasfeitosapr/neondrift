@@ -54,6 +54,8 @@ export function createState(canvas: HTMLCanvasElement, ctx: CanvasRenderingConte
     modifiers: { ...defaultModifiers },
     activePowerUps: [],
     powerUpPickups: [],
-    chainLightningArcs: []
+    chainLightningArcs: [],
+    timeSlowRipples: [],
+    pendingRevengeMeteors: []
   };
 }
