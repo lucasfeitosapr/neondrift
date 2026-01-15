@@ -199,7 +199,7 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
         mods.spawnRateMagnet = (mods.spawnRateMagnet ?? 1) * reduction;
       }
     },
-    onActivate: (state, instance, _now) => {
+    onActivate: (state, instance) => {
       // Trigger visual feedback when hitting super magnet threshold
       if (instance.stacks >= config.magnet.SUPER_MAGNET_THRESHOLD) {
         const x = state.player ? state.player.x + state.player.width / 2 : state.canvas.width / 2;

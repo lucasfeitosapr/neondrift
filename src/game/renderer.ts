@@ -7,8 +7,8 @@ import { GameState } from './types';
 
 export function renderScene(state: GameState & { debugEnabled?: boolean }) {
   const { ctx, canvas } = state;
-  const lw = (canvas as any)._cssWidth || canvas.width;
-  const lh = (canvas as any)._cssHeight || canvas.height;
+  const lw = state.viewport?.width ?? canvas.width;
+  const lh = state.viewport?.height ?? canvas.height;
   ctx.clearRect(0, 0, lw, lh);
 
   drawGrid(state);

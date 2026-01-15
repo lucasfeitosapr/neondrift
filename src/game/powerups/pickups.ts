@@ -1,19 +1,19 @@
-import { MagnetStyle, PowerUpId, PowerUpPickup, TimeSlowStyle } from '../types';
+import { GameState, MagnetStyle, PowerUpId, PowerUpPickup, TimeSlowStyle } from '../types';
 
 const PICKUP_SIZE = 22;
 
-export function spawnPowerUpPickup(state: any, id: PowerUpId, x: number, y: number, speed: number, style?: MagnetStyle, timeSlowStyle?: TimeSlowStyle) {
+export function spawnPowerUpPickup(state: GameState, id: PowerUpId, x: number, y: number, speed: number, style?: MagnetStyle, timeSlowStyle?: TimeSlowStyle): void {
   const pickup: PowerUpPickup = { id, x, y, width: PICKUP_SIZE, height: PICKUP_SIZE, speed, style, timeSlowStyle };
   state.powerUpPickups.push(pickup);
 }
 
 export function updatePowerUpPickups(
-  state: any,
+  state: GameState,
   logicalWidth: number,
   logicalHeight: number,
   dtFactor: number,
   onCollect: (id: PowerUpId, pickup: PowerUpPickup) => void
-) {
+): void {
   const gameSpeed = state.modifiers?.gameSpeed ?? 1;
   
   for (let i = state.powerUpPickups.length - 1; i >= 0; i--) {

@@ -27,8 +27,8 @@ export function drawFloatingTexts(state: GameState & { dtFactor: number }) {
 
 export function drawUI(state: GameState & { gameRunning: boolean; score: number; highScore: number }) {
   const { ctx, canvas, activePowerUps, gameRunning } = state;
-  const lw = (canvas as any)._cssWidth || canvas.width;
-  const lh = (canvas as any)._cssHeight || canvas.height;
+  const lw = state.viewport?.width ?? canvas.width;
+  const lh = state.viewport?.height ?? canvas.height;
 
   // Active power-up HUD (top-left)
   if (gameRunning) {
@@ -52,6 +52,41 @@ export function drawUI(state: GameState & { gameRunning: boolean; score: number;
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ctx.fillText('none', 10, 40);
     }
+    ctx.restore();
+  }
+
+  if (state.paused && gameRunning) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 0, 20, 0.65)';
+    ctx.fillRect(0, 0, lw, lh);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 42px Orbitron';
+    ctx.fillStyle = '#ff00ff';
+    ctx.shadowColor = '#ff00ff';
+    ctx.shadowBlur = 30;
+    ctx.fillText('P A U S E D', lw / 2, lh / 2 - 10);
+    ctx.font = '16px Orbitron';
+    ctx.fillStyle = '#00ffff';
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 15;
+    ctx.fillText('Press P or click RESUME', lw / 2, lh / 2 + 30);
+    ctx.restore();
+  }
+
+  if (state.resumeCountdownActive && typeof state.resumeCountdownValue === 'number') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, lw, lh);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff00ff';
+    ctx.shadowColor = '#ff00ff';
+    ctx.shadowBlur = 25;
+    ctx.font = 'bold 80px Orbitron';
+    ctx.fillText(state.resumeCountdownValue.toString(), lw / 2, lh / 2);
+    ctx.font = '18px Orbitron';
+    ctx.fillStyle = '#00ffff';
+    ctx.shadowColor = '#00ffff';
+    ctx.fillText('GET READY', lw / 2, lh / 2 + 50);
     ctx.restore();
   }
 

@@ -1,4 +1,6 @@
-export function drawDebug(state: any) {
+import { GameState } from './types';
+
+export function drawDebug(state: GameState): void {
   const debugEnabled = state.debugEnabled;
   const debug = state.debug || { grid: true, boxes: false, particles: false };
   if (!debugEnabled) return;

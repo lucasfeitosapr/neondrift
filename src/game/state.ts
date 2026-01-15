@@ -21,12 +21,16 @@ export function createState(canvas: HTMLCanvasElement, ctx: CanvasRenderingConte
     score: 0,
     highScore: parseInt(localStorage.getItem('neondrift_highscore') || '0', 10) || 0,
     gameRunning: true,
+    paused: false,
+    resumeCountdownActive: false,
+    resumeCountdownTarget: null,
     gameSpeed: config.INITIAL_GAME_SPEED,
     time: 0,
     dtFactor: 1,
     player: null,
     crystals: [],
     meteors: [],
+    cats: [],
     gridLines: [],
     particles: [],
     MAX_PARTICLES: config.PARTICLE_POOL_SIZE,
@@ -51,11 +55,15 @@ export function createState(canvas: HTMLCanvasElement, ctx: CanvasRenderingConte
     comboCount: 0,
     floatingTexts: [],
     fps: 60,
+    debug: { grid: true, boxes: false, particles: false, invincibility: false, meteors: true, forceMaxDifficulty: false },
+    debugEnabled: true,
+    viewport: { width: canvas.width, height: canvas.height, dpr: 1 },
     modifiers: { ...defaultModifiers },
     activePowerUps: [],
     powerUpPickups: [],
     chainLightningArcs: [],
     timeSlowRipples: [],
-    pendingRevengeMeteors: []
+    pendingRevengeMeteors: [],
+    lastCatSpawnTimestamp: 0
   };
 }

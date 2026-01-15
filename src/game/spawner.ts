@@ -1,15 +1,24 @@
 import { config } from './config';
-import { createCrystalEntity, createMeteorEntity } from './entities';
-import { GameState, Meteor } from './types';
+import { createCatEntity, createCrystalEntity, createMeteorEntity } from './entities';
+import { CatDrop, GameState, Meteor } from './types';
 
-export function spawnCrystal(state: Pick<GameState, 'canvas' | 'gameSpeed' | 'score' | 'crystals'>) {
-  const c = createCrystalEntity(state.canvas, state.gameSpeed, state.score);
+export function spawnCrystal(state: Pick<GameState, 'canvas' | 'viewport' | 'gameSpeed' | 'score' | 'crystals'>) {
+  const logicalWidth = state.viewport?.width ?? state.canvas.width;
+  const c = createCrystalEntity(logicalWidth, state.gameSpeed, state.score);
   state.crystals.push(c);
 }
 
-export function spawnMeteor(state: Pick<GameState, 'canvas' | 'gameSpeed' | 'meteors'>) {
-  const m = createMeteorEntity(state.canvas, state.gameSpeed);
+export function spawnMeteor(state: Pick<GameState, 'canvas' | 'viewport' | 'gameSpeed' | 'meteors'>) {
+  const logicalWidth = state.viewport?.width ?? state.canvas.width;
+  const m = createMeteorEntity(logicalWidth, state.gameSpeed);
   state.meteors.push(m);
+}
+
+export function spawnCat(state: Pick<GameState, 'canvas' | 'viewport' | 'gameSpeed' | 'cats'>): CatDrop {
+  const logicalWidth = state.viewport?.width ?? state.canvas.width;
+  const c = createCatEntity(logicalWidth, state.gameSpeed);
+  state.cats.push(c);
+  return c;
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -1,13 +1,13 @@
 import { config } from '../config';
-import { ChainLightningArc, DebugFlags, GameState } from '../types';
+import { DebugFlags, GameState } from '../types';
 
 // ═══════════════════════════════════════════════════════════════
 // TIME SLOW EFFECTS - Scanlines & Ripple
 // ═══════════════════════════════════════════════════════════════
 export function drawTimeSlowEffects(state: GameState) {
   const { ctx, canvas, activePowerUps, timeSlowRipples, pendingRevengeMeteors, time } = state;
-  const lw = (canvas as any)._cssWidth || canvas.width;
-  const lh = (canvas as any)._cssHeight || canvas.height;
+  const lw = state.viewport?.width ?? canvas.width;
+  const lh = state.viewport?.height ?? canvas.height;
   
   const isTimeSlowActive = activePowerUps.some(p => p.id === 'time_slow');
   const now = performance.now();
@@ -142,8 +142,8 @@ export function drawChainLightning(state: GameState) {
   const { ctx, chainLightningArcs, time, canvas } = state;
   if (!chainLightningArcs || chainLightningArcs.length === 0) return;
   
-  const lw = (canvas as any)._cssWidth || canvas.width;
-  const lh = (canvas as any)._cssHeight || canvas.height;
+  const lw = state.viewport?.width ?? canvas.width;
+  const lh = state.viewport?.height ?? canvas.height;
   
   ctx.save();
   
@@ -250,7 +250,7 @@ export function drawChainLightning(state: GameState) {
 }
 
 export function drawEntities(state: GameState & { debug?: DebugFlags }) {
-  const { ctx, player, crystals, meteors, powerUpPickups } = state;
+  const { ctx, player, crystals, meteors, powerUpPickups, cats } = state;
 
   // Player
   if (player) {
@@ -268,7 +268,7 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }) {
     ctx.shadowBlur = 0;
 
     // Debug: player bounding boxes
-    if ((state as any).debug && (state as any).debug.boxes) {
+    if (state.debug && state.debug.boxes) {
       ctx.save();
       ctx.lineWidth = 1;
       ctx.shadowBlur = 0;
@@ -294,7 +294,7 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }) {
 
   // Crystals
   const gameSpeedScale = state.dtFactor * state.modifiers.gameSpeed;
-  crystals.forEach((crystal: any) => {
+  crystals.forEach((crystal) => {
     crystal.rotation += 0.1 * gameSpeedScale;
     ctx.save(); ctx.translate(crystal.x + crystal.width/2, crystal.y + crystal.height/2); ctx.rotate(crystal.rotation);
     let mainColor = crystal.type.colorHex || '#00ffff'; let shadowColor = mainColor;
@@ -306,7 +306,7 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }) {
     ctx.restore(); ctx.shadowBlur = 0;
 
     // Debug: crystal bounding box (axis-aligned)
-    if ((state as any).debug && (state as any).debug.boxes) {
+    if (state.debug && state.debug.boxes) {
       ctx.save();
       ctx.strokeStyle = 'rgba(0, 255, 255, 0.9)';
       ctx.lineWidth = 1;
@@ -318,8 +318,133 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }) {
     }
   });
 
+  // Cats (bonus drops)
+  cats.forEach((cat) => {
+    const t = state.time;
+    const cx = cat.x + cat.width / 2;
+    const cy = cat.y + cat.height / 2;
+    const bob = Math.sin(t * 4 + cat.wobble) * 2;
+    const baseColor = cat.pattern === 'shadow' ? '#101018' : `hsl(${cat.hue}, 85%, 65%)`;
+    const glowColor = cat.pattern === 'neon' ? `hsl(${(cat.hue + 40) % 360}, 100%, 70%)` : baseColor;
+
+    ctx.save();
+    ctx.translate(cx, cy + bob);
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = baseColor;
+
+    // Face
+    ctx.beginPath();
+    ctx.arc(0, 0, cat.width * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ears
+    ctx.beginPath();
+    ctx.moveTo(-cat.width * 0.35, -cat.height * 0.2);
+    ctx.lineTo(-cat.width * 0.15, -cat.height * 0.55);
+    ctx.lineTo(-cat.width * 0.02, -cat.height * 0.12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cat.width * 0.35, -cat.height * 0.2);
+    ctx.lineTo(cat.width * 0.15, -cat.height * 0.55);
+    ctx.lineTo(cat.width * 0.02, -cat.height * 0.12);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subtle outline for contrast
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.beginPath();
+    ctx.arc(0, 0, cat.width * 0.45, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-cat.width * 0.35, -cat.height * 0.2);
+    ctx.lineTo(-cat.width * 0.15, -cat.height * 0.55);
+    ctx.lineTo(-cat.width * 0.02, -cat.height * 0.12);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cat.width * 0.35, -cat.height * 0.2);
+    ctx.lineTo(cat.width * 0.15, -cat.height * 0.55);
+    ctx.lineTo(cat.width * 0.02, -cat.height * 0.12);
+    ctx.closePath();
+    ctx.stroke();
+
+    // Eyes
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = cat.pattern === 'shadow' ? '#00ffff' : '#0f1320';
+    const eyeOffsetX = cat.width * 0.16;
+    const eyeOffsetY = -cat.height * 0.05;
+    ctx.beginPath();
+    ctx.arc(-eyeOffsetX, eyeOffsetY, 1.6, 0, Math.PI * 2);
+    ctx.arc(eyeOffsetX, eyeOffsetY, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Neon glasses (analogous hue)
+    const glassesHue = cat.pattern === 'shadow' ? 200 : (cat.hue + 30) % 360;
+    const glassesColor = `hsl(${glassesHue}, 100%, 70%)`;
+    ctx.strokeStyle = glassesColor;
+    ctx.shadowColor = glassesColor;
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = 1.4;
+    const lensW = cat.width * 0.18;
+    const lensH = cat.height * 0.12;
+    const lensY = eyeOffsetY - lensH * 0.2;
+    ctx.beginPath();
+    ctx.roundRect(-eyeOffsetX - lensW / 2, lensY, lensW, lensH, 2);
+    ctx.roundRect(eyeOffsetX - lensW / 2, lensY, lensW, lensH, 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-eyeOffsetX + lensW / 2, lensY + lensH / 2);
+    ctx.lineTo(eyeOffsetX - lensW / 2, lensY + lensH / 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Nose
+    ctx.fillStyle = '#ff66cc';
+    ctx.beginPath();
+    ctx.arc(0, cat.height * 0.1, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Whiskers
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-cat.width * 0.1, cat.height * 0.08);
+    ctx.lineTo(-cat.width * 0.35, cat.height * 0.05);
+    ctx.moveTo(-cat.width * 0.1, cat.height * 0.14);
+    ctx.lineTo(-cat.width * 0.35, cat.height * 0.18);
+    ctx.moveTo(cat.width * 0.1, cat.height * 0.08);
+    ctx.lineTo(cat.width * 0.35, cat.height * 0.05);
+    ctx.moveTo(cat.width * 0.1, cat.height * 0.14);
+    ctx.lineTo(cat.width * 0.35, cat.height * 0.18);
+    ctx.stroke();
+
+    // Pattern stripes
+    if (cat.pattern === 'tabby') {
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, cat.width * 0.3, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+    ctx.shadowBlur = 0;
+
+    if (state.debug && state.debug.boxes) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cat.x, cat.y, cat.width, cat.height);
+      ctx.restore();
+    }
+  });
+
   // Power-up pickups
-  powerUpPickups.forEach((pickup: any) => {
+  powerUpPickups.forEach((pickup) => {
     const t = state.time;
     const cx = pickup.x + pickup.width / 2;
     const cy = pickup.y + pickup.height / 2;
@@ -768,7 +893,7 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }) {
       ctx.shadowBlur = 0;
     }
 
-    if ((state as any).debug && (state as any).debug.boxes) {
+    if (state.debug && state.debug.boxes) {
       const debugColor = pickup.id === 'magnet' ? '#ff6644' : '#c59bff';
       ctx.save();
       ctx.strokeStyle = debugColor;
@@ -780,7 +905,7 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }) {
   });
 
   // Meteors
-  meteors.forEach((meteor: any) => {
+  meteors.forEach((meteor) => {
     meteor.rotation += 0.05 * gameSpeedScale; meteor.pulse += 0.1 * gameSpeedScale;
     ctx.save(); ctx.translate(meteor.x + meteor.width/2, meteor.y + meteor.height/2); ctx.rotate(meteor.rotation);
     const glowIntensity = Math.sin(meteor.pulse) * 0.3 + 0.7; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 25 * glowIntensity;
@@ -790,7 +915,7 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }) {
     ctx.restore(); ctx.shadowBlur = 0;
 
     // Debug: meteor bounding box (axis-aligned)
-    if ((state as any).debug && (state as any).debug.boxes) {
+    if (state.debug && state.debug.boxes) {
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 0, 255, 0.9)';
       ctx.lineWidth = 1;

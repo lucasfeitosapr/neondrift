@@ -1,11 +1,26 @@
 import { config } from './config';
-import { initInput, keys } from './input';
+import { initInput, keys, touchState } from './input';
 import { renderScene } from './renderer';
-import { spawnCrystal, spawnMeteor, spawnRevengeMeteor } from './spawner';
+import { spawnCat, spawnCrystal, spawnMeteor, spawnRevengeMeteor } from './spawner';
 import { GameState, Particle, ParticleColorMode } from './types';
 import { createState, defaultModifiers } from './state';
 import { activatePowerUp, tickPowerUps } from './powerups/system';
 import { spawnPowerUpPickup, updatePowerUpPickups } from './powerups/pickups';
+import { checkCollision, checkPlayerCollision } from './collision';
+import { updatePlayerPosition, getInitialPlayerY, clampPlayerPosition, MovementInput } from './movement';
+import {
+  processCrystalCollection,
+  shouldIncreaseGameSpeed,
+  calculateNewGameSpeed,
+  getDifficultyLevel,
+  getDifficultyPercent,
+  getMaxDifficultyLevel,
+  isNewHighScore,
+  getScoreDisplayText,
+  getHighScoreDisplayText,
+  getPointsText,
+  getComboText,
+} from './scoring';
 
 export function startGame(): void {
   // ...existing code migrated from neon_drift.html script section...
@@ -15,20 +30,92 @@ export function startGame(): void {
   const highScoreElement = document.getElementById('highScore') as HTMLElement;
 
   // Helpers to read logical (CSS) canvas size when DPR scaling is applied
-  function logicalWidth() { return (canvas as any)._cssWidth || canvas.width; }
-  function logicalHeight() { return (canvas as any)._cssHeight || canvas.height; }
+  function logicalWidth() { return state.viewport?.width ?? canvas.width; }
+  function logicalHeight() { return state.viewport?.height ?? canvas.height; }
 
   // Create single shared game state (use typed GameState)
   const state: GameState = createState(canvas, ctx);
+  const pauseButton = document.getElementById('pauseBtn') as HTMLButtonElement | null;
+
+  function syncPauseButton() {
+    if (!pauseButton) return;
+    pauseButton.classList.toggle('paused', state.paused);
+    pauseButton.textContent = state.paused ? 'R E S U M E' : 'P A U S E';
+    pauseButton.disabled = !state.gameRunning;
+    pauseButton.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+    pauseButton.title = state.paused ? 'Resume (P / Esc)' : 'Pause (P / Esc)';
+  }
+
+  function setPauseState(paused: boolean, options?: { showCountdown?: boolean }) {
+    const effectivePause = paused && state.gameRunning;
+    const wasPaused = state.paused;
+    state.paused = effectivePause;
+    if (!effectivePause && wasPaused && options?.showCountdown) {
+      const countdownDuration = 3000;
+      state.resumeCountdownActive = true;
+      state.resumeCountdownTarget = performance.now() + countdownDuration;
+      state.resumeCountdownValue = 3;
+    } else if (effectivePause) {
+      state.resumeCountdownActive = false;
+      state.resumeCountdownTarget = null;
+      state.resumeCountdownValue = undefined;
+    }
+    syncPauseButton();
+  }
+
+  function togglePause(force?: boolean) {
+    if (!state.gameRunning) {
+      setPauseState(false);
+      return;
+    }
+    const next = force ?? !state.paused;
+    setPauseState(next, { showCountdown: !next });
+  }
+
+  pauseButton?.addEventListener('click', () => {
+    togglePause();
+  });
+
+  syncPauseButton();
 
   // update UI highscore text
-  highScoreElement.textContent = `H I G H : ${state.highScore.toString().padStart(6, '0')}`;
+  highScoreElement.textContent = getHighScoreDisplayText(state.highScore);
 
   // Telemetry removed (was experimental)
 
   // Floating score texts
   function createFloatingText(x: number, y: number, text: string, color = '#00ffff') {
     state.floatingTexts.push({ x, y, text, life: 1, color, vy: -0.3 - Math.random() * 0.4 });
+  }
+
+  function getComboDifficultyMultipliers(comboCount: number) {
+    const comboSettings = config.dynamicDifficulty?.combo;
+    if (!comboSettings) return { spawnMultiplier: 1, meteorSpeedMultiplier: 1 };
+    const {
+      minComboForAggro,
+      spawnBonusPerLevel,
+      spawnMaxMultiplier,
+      lowComboSpawnMultiplier,
+      meteorSpeedBonusPerLevel,
+      meteorSpeedMaxMultiplier,
+      lowComboSpeedMultiplier,
+    } = comboSettings;
+
+    if (comboCount >= minComboForAggro) {
+      const levelsAbove = comboCount - minComboForAggro + 1;
+      const spawnMultiplier = Math.min(spawnMaxMultiplier, 1 + levelsAbove * spawnBonusPerLevel);
+      const meteorSpeedMultiplier = Math.min(
+        meteorSpeedMaxMultiplier,
+        1 + levelsAbove * meteorSpeedBonusPerLevel
+      );
+      return { spawnMultiplier, meteorSpeedMultiplier };
+    }
+
+    const minAggroThreshold = Math.max(1, minComboForAggro - 1);
+    const blend = Math.min(1, comboCount / minAggroThreshold);
+    const spawnMultiplier = lowComboSpawnMultiplier + (1 - lowComboSpawnMultiplier) * blend;
+    const meteorSpeedMultiplier = lowComboSpeedMultiplier + (1 - lowComboSpeedMultiplier) * blend;
+    return { spawnMultiplier, meteorSpeedMultiplier };
   }
 
   // Initialize grid
@@ -41,14 +128,26 @@ export function startGame(): void {
 
   // Responsive DPR-aware resize handler: set CSS size and high-DPI backing buffer
   function resizeCanvas() {
-    const padding = 40;
+    const padding = 32;
+    const titleEl = document.querySelector('.title') as HTMLElement | null;
+    const controlsEl = document.querySelector('.controls') as HTMLElement | null;
+    const touchHintEl = document.querySelector('.touch-hint') as HTMLElement | null;
+    const topHudEl = document.querySelector('.right-panel') as HTMLElement | null;
+    const titleHeight = titleEl?.getBoundingClientRect().height ?? 0;
+    const controlsHeight = controlsEl?.getBoundingClientRect().height ?? 0;
+    const touchHintHeight = touchHintEl?.getBoundingClientRect().height ?? 0;
+    const topHudHeight = topHudEl?.getBoundingClientRect().height ?? 0;
+    const uiHeight = titleHeight + topHudHeight + Math.max(controlsHeight, touchHintHeight) + 24;
+
     // Mobile-friendly sizing: fit canvas to available space
     const availableWidth = window.innerWidth - padding;
-    const availableHeight = window.innerHeight - 180; // Leave room for title/controls
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const availableHeight = viewportHeight - uiHeight - padding;
     
-    // Maintain aspect ratio (400:500 = 0.8)
-    const targetAspect = 0.8;
-    let cssWidth = Math.min(400, availableWidth); // Max 400px, or screen width
+    // Maintain aspect ratio (360:640 ≈ 0.5625)
+    const targetAspect = config.CANVAS_WIDTH / config.CANVAS_HEIGHT;
+    const maxCanvasWidth = 520;
+    let cssWidth = Math.min(maxCanvasWidth, availableWidth); // Cap width for comfortable play area
     let cssHeight = cssWidth / targetAspect;
     
     // If height is too tall, constrain by height instead
@@ -63,26 +162,26 @@ export function startGame(): void {
     
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    (canvas as any)._cssWidth = cssWidth;
-    (canvas as any)._cssHeight = cssHeight;
     canvas.style.width = `${cssWidth}px`;
     canvas.style.height = `${cssHeight}px`;
     canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
     canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
 
-    try { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); } catch (e) { }
+    // Update viewport information
+    state.viewport = { width: cssWidth, height: cssHeight, dpr };
+
+    try { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); } catch { /* DPR transform not supported */ }
 
     if (state.player) {
+      // Center player horizontally and clamp to bounds using movement module
       state.player.x = Math.floor(logicalWidth() / 2 - state.player.width / 2);
-      // Keep player in vertical bounds if vertical movement is enabled
-      if (config.ENABLE_VERTICAL_MOVEMENT) {
-        const lh = logicalHeight();
-        const bottomBound = lh - config.PLAYER_VERTICAL_PADDING - state.player.height;
-        state.player.y = Math.min(state.player.y, bottomBound);
-        state.player.y = Math.max(state.player.y, config.PLAYER_VERTICAL_PADDING);
-      } else {
-        state.player.y = logicalHeight() - 60;
-      }
+      const clampedPos = clampPlayerPosition(
+        state.player,
+        logicalWidth(),
+        logicalHeight(),
+        config.ENABLE_VERTICAL_MOVEMENT
+      );
+      state.player.y = clampedPos.y;
     }
   }
 
@@ -116,28 +215,29 @@ export function startGame(): void {
   }
 
   // drawing logic moved to src/game/render/* via renderer
-
-  function checkCollision(obj1: { x: number; y: number; width: number; height: number; }, obj2: { x: number; y: number; width: number; height: number; }) {
-    return obj1.x < obj2.x + obj2.width && obj1.x + obj1.width > obj2.x && obj1.y < obj2.y + obj2.height && obj1.y + obj1.height > obj2.y;
-  }
-  
-  // Player hitbox collision - uses shrunk hitbox to match triangle shape
-  function checkPlayerCollision(player: { x: number; y: number; width: number; height: number; }, obj: { x: number; y: number; width: number; height: number; }) {
-    const topInset = config.PLAYER_HITBOX_TOP_INSET;
-    const sideInset = config.PLAYER_HITBOX_SIDE_INSET;
-    
-    // Shrunk player hitbox
-    const px = player.x + sideInset;
-    const py = player.y + topInset;
-    const pw = player.width - sideInset * 2;
-    const ph = player.height - topInset;
-    
-    return px < obj.x + obj.width && px + pw > obj.x && py < obj.y + obj.height && py + ph > obj.y;
-  }
+  // collision detection moved to src/game/collision.ts
 
   function update() {
     if (!state.gameRunning) return;
     const now = performance.now();
+
+    if (state.paused) return;
+
+    if (state.resumeCountdownActive) {
+      const target = state.resumeCountdownTarget ?? now;
+      const remainingMs = Math.max(0, target - now);
+      if (remainingMs <= 0) {
+        state.resumeCountdownActive = false;
+        state.resumeCountdownTarget = null;
+        state.resumeCountdownValue = undefined;
+      } else {
+        const nextValue = Math.max(1, Math.ceil(remainingMs / 1000));
+        if (nextValue !== state.resumeCountdownValue) {
+          state.resumeCountdownValue = nextValue;
+        }
+        return;
+      }
+    }
     const dtMs = state.dtFactor * (1000 / 60);
     tickPowerUps(state, now, dtMs);
     
@@ -179,27 +279,63 @@ export function startGame(): void {
       }
     }
 
-    const moveAmount = state.player.speed * state.dtFactor * state.modifiers.playerSpeed;
     const lw = logicalWidth();
     const lh = logicalHeight();
-    
-    // Horizontal movement
-    if ((keys['arrowleft'] || keys['a']) && state.player.x > 0) { state.player.x -= moveAmount; if (state.player.x < 0) state.player.x = 0; }
-    if ((keys['arrowright'] || keys['d']) && state.player.x < lw - state.player.width) { state.player.x += moveAmount; if (state.player.x > lw - state.player.width) state.player.x = lw - state.player.width; }
-    
-    // Vertical movement (if enabled)
-    if (config.ENABLE_VERTICAL_MOVEMENT) {
-      const topBound = config.PLAYER_VERTICAL_PADDING;
-      const bottomBound = lh - config.PLAYER_VERTICAL_PADDING - state.player.height;
-      
-      if ((keys['arrowup'] || keys['w']) && state.player.y > topBound) {
-        state.player.y -= moveAmount;
-        if (state.player.y < topBound) state.player.y = topBound;
+    const comboScaling = getComboDifficultyMultipliers(state.comboCount);
+
+    // Player movement using movement module
+    if (touchState.active) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = lw / rect.width;
+      const scaleY = lh / rect.height;
+
+      if (!(state as any)._touchAnchor) {
+        (state as any)._touchAnchor = {
+          playerX: state.player.x,
+          playerY: state.player.y,
+          startX: touchState.startClientX,
+          startY: touchState.startClientY,
+        };
       }
-      if ((keys['arrowdown'] || keys['s']) && state.player.y < bottomBound) {
-        state.player.y += moveAmount;
-        if (state.player.y > bottomBound) state.player.y = bottomBound;
+
+      const anchor = (state as any)._touchAnchor;
+      const dx = (touchState.clientX - anchor.startX) * scaleX;
+      const dy = (touchState.clientY - anchor.startY) * scaleY;
+
+      state.player.x = anchor.playerX + dx;
+      if (config.ENABLE_VERTICAL_MOVEMENT) {
+        state.player.y = anchor.playerY + dy;
       }
+
+      const clamped = clampPlayerPosition(
+        state.player,
+        lw,
+        lh,
+        config.ENABLE_VERTICAL_MOVEMENT
+      );
+      state.player.x = clamped.x;
+      state.player.y = clamped.y;
+    } else {
+      if ((state as any)._touchAnchor) {
+        (state as any)._touchAnchor = null;
+      }
+      const movementInput: MovementInput = {
+        left: keys['arrowleft'] || keys['a'],
+        right: keys['arrowright'] || keys['d'],
+        up: keys['arrowup'] || keys['w'],
+        down: keys['arrowdown'] || keys['s'],
+      };
+      const newPos = updatePlayerPosition(
+        state.player,
+        movementInput,
+        state.dtFactor,
+        lw,
+        lh,
+        state.modifiers.playerSpeed,
+        config.ENABLE_VERTICAL_MOVEMENT
+      );
+      state.player.x = newPos.x;
+      state.player.y = newPos.y;
     }
 
     // Update power-up pickups (falling, collectable)
@@ -267,40 +403,87 @@ export function startGame(): void {
       crystal.y += crystal.speed * state.dtFactor * state.modifiers.gameSpeed;
       crystal.glow = Math.sin(state.time * 3) * 0.3 + 0.7;
       if (checkCollision(state.player, crystal)) {
-        if (now - state.lastCollectTimestamp <= config.COMBO_TIMEOUT) { state.comboCount = Math.min(config.MAX_COMBO, state.comboCount + 1); } else { state.comboCount = 1; }
-        state.lastCollectTimestamp = now;
-        const multiplier = 1 + Math.max(0, state.comboCount - 1) * 0.5;
-        const basePoints = crystal.type.points;
-        const pointsAwarded = Math.floor(basePoints * multiplier * state.modifiers.scoreMultiplier);
-        state.score += pointsAwarded;
+        // Use scoring module for crystal collection
+        const previousScore = state.score;
+        const collectionResult = processCrystalCollection(
+          crystal.type.points,
+          now,
+          state.lastCollectTimestamp,
+          state.comboCount,
+          state.modifiers.scoreMultiplier
+        );
 
-        let particleColor: any;
+        state.comboCount = collectionResult.newComboCount;
+        state.lastCollectTimestamp = now;
+        state.score += collectionResult.pointsAwarded;
+
+        let particleColor: string | 'rainbow';
         switch(crystal.type.color) { case 'purple': particleColor = '170, 0, 255'; break; case 'gold': particleColor = '255, 170, 0'; break; case 'rainbow': particleColor = 'rainbow'; break; default: particleColor = '0, 255, 255'; }
         createParticle(crystal.x + crystal.width/2, crystal.y + crystal.height/2, particleColor);
-        createFloatingText(crystal.x + crystal.width/2, crystal.y, `+${pointsAwarded}`, '#00ffff');
-        if (state.comboCount > 1) createFloatingText(state.player.x + state.player.width/2, state.player.y - 10, `x${state.comboCount}`, '#ff00ff');
+        createFloatingText(crystal.x + crystal.width/2, crystal.y, getPointsText(collectionResult.pointsAwarded), '#00ffff');
+        if (state.comboCount > 1) createFloatingText(state.player.x + state.player.width/2, state.player.y - 10, getComboText(state.comboCount), '#ff00ff');
 
         state.crystals.splice(i, 1);
-        scoreElement.textContent = `S C O R E : ${state.score.toString().padStart(6, '0')}`;
-        if (state.score % 100 === 0) { state.gameSpeed += 0.5; }
-        if (state.score > state.highScore) { state.highScore = state.score; try { localStorage.setItem('neondrift_highscore', String(state.highScore)); } catch (e) { } highScoreElement.textContent = `H I G H : ${state.highScore.toString().padStart(6, '0')}`; }
+        scoreElement.textContent = getScoreDisplayText(state.score);
+        if (shouldIncreaseGameSpeed(previousScore, state.score)) { state.gameSpeed = calculateNewGameSpeed(state.gameSpeed); }
+        // Force max difficulty if toggle is on
+        if (state.debug?.forceMaxDifficulty) { state.gameSpeed = config.difficulty.MAX_GAME_SPEED; }
+        if (isNewHighScore(state.score, state.highScore)) { state.highScore = state.score; try { localStorage.setItem('neondrift_highscore', String(state.highScore)); } catch { /* localStorage unavailable */ } highScoreElement.textContent = getHighScoreDisplayText(state.highScore); }
       } else if (state.crystals[i] && state.crystals[i].y > logicalHeight()) { state.crystals.splice(i, 1); }
     }
 
+    for (let i = state.cats.length - 1; i >= 0; i--) {
+      const cat = state.cats[i];
+      cat.y += cat.speed * state.dtFactor * state.modifiers.gameSpeed;
+
+      if (checkCollision(state.player, cat)) {
+        const previousScore = state.score;
+        const difficultyLevel = getDifficultyLevel(state.score);
+        const points = Math.floor(
+          config.cat.basePoints * (1 + (difficultyLevel - 1) * config.cat.pointsScalePerLevel) * state.modifiers.scoreMultiplier
+        );
+
+        state.score += points;
+        createParticle(cat.x + cat.width / 2, cat.y + cat.height / 2, '255, 150, 255');
+        createFloatingText(cat.x + cat.width / 2, cat.y, `+${points} CAT`, '#ff99ff');
+        state.cats.splice(i, 1);
+        scoreElement.textContent = getScoreDisplayText(state.score);
+
+        if (shouldIncreaseGameSpeed(previousScore, state.score)) { state.gameSpeed = calculateNewGameSpeed(state.gameSpeed); }
+        if (state.debug?.forceMaxDifficulty) { state.gameSpeed = config.difficulty.MAX_GAME_SPEED; }
+        if (isNewHighScore(state.score, state.highScore)) {
+          state.highScore = state.score;
+          try { localStorage.setItem('neondrift_highscore', String(state.highScore)); } catch { /* localStorage unavailable */ }
+          highScoreElement.textContent = getHighScoreDisplayText(state.highScore);
+        }
+      } else if (state.cats[i] && state.cats[i].y > logicalHeight()) {
+        state.cats.splice(i, 1);
+      }
+    }
+
     for (let i = state.meteors.length - 1; i >= 0; i--) {
-      state.meteors[i].y += state.meteors[i].speed * state.dtFactor * state.modifiers.gameSpeed;
-      if (checkPlayerCollision(state.player, state.meteors[i])) { state.gameRunning = false; createParticle(state.player.x + state.player.width/2, state.player.y + state.player.height/2, '255, 0, 255', config.particles.DECAY_EXPLOSION); return; }
+      state.meteors[i].y += state.meteors[i].speed * comboScaling.meteorSpeedMultiplier * state.dtFactor * state.modifiers.gameSpeed;
+      if (checkPlayerCollision(state.player, state.meteors[i]) && !state.debug?.invincibility) { state.gameRunning = false; syncPauseButton(); createParticle(state.player.x + state.player.width/2, state.player.y + state.player.height/2, '255, 0, 255', config.particles.DECAY_EXPLOSION); return; }
       else if (state.meteors[i] && state.meteors[i].y > logicalHeight()) { state.meteors.splice(i, 1); }
+    }
+
+    const catCooldownPassed = (now - state.lastCatSpawnTimestamp) >= config.cat.spawnCooldownMs;
+    if (catCooldownPassed && state.cats.length < config.cat.maxOnScreen) {
+      const catSpawnChance = config.cat.spawnChance * state.dtFactor;
+      if (Math.random() < catSpawnChance) {
+        spawnCat(state);
+        state.lastCatSpawnTimestamp = now;
+      }
     }
 
     // Spawn scaling: increase spawn rate with game speed to maintain density
     const spawnScale = state.dtFactor;
     const speedBonus = 1 + (state.gameSpeed - config.INITIAL_GAME_SPEED) * 0.15; // +15% per speed level
-    const crystalSpawnChance = config.SPAWN_CRYSTAL_RATE * spawnScale * speedBonus * state.modifiers.spawnRateCrystal;
-    const meteorSpawnChance = config.SPAWN_METEOR_RATE * spawnScale * speedBonus * state.modifiers.spawnRateMeteor;
+    const crystalSpawnChance = config.SPAWN_CRYSTAL_RATE * spawnScale * speedBonus * state.modifiers.spawnRateCrystal * comboScaling.spawnMultiplier;
+    const meteorSpawnChance = config.SPAWN_METEOR_RATE * spawnScale * speedBonus * state.modifiers.spawnRateMeteor * comboScaling.spawnMultiplier;
     
     if (Math.random() < crystalSpawnChance) spawnCrystal(state);
-    if (Math.random() < meteorSpawnChance) spawnMeteor(state);
+    if (Math.random() < meteorSpawnChance && state.debug?.meteors) spawnMeteor(state);
     
     // Independent magnet spawning from the sky (affected by diminishing returns when active)
     const magnetSpawnRate = config.SPAWN_MAGNET_RATE * spawnScale * state.modifiers.spawnRateMagnet;
@@ -390,33 +573,24 @@ export function startGame(): void {
   }
 
   function restartGame() {
-    state.score = 0; state.gameSpeed = config.INITIAL_GAME_SPEED; state.gameRunning = true; state.crystals.length = 0; state.meteors.length = 0; state.particles.length = 0; 
+    state.score = 0; state.gameSpeed = config.INITIAL_GAME_SPEED; state.gameRunning = true; state.paused = false; state.resumeCountdownActive = false; state.resumeCountdownTarget = null; state.resumeCountdownValue = undefined; syncPauseButton(); state.crystals.length = 0; state.meteors.length = 0; state.cats.length = 0; state.particles.length = 0;
     state.player.x = logicalWidth() / 2 - 25;
-    // Reset player to bottom (or within bounds if vertical movement enabled)
-    if (config.ENABLE_VERTICAL_MOVEMENT) {
-      const lh = logicalHeight();
-      state.player.y = lh - config.PLAYER_VERTICAL_PADDING - state.player.height;
-    } else {
-      state.player.y = logicalHeight() - 60;
-    }
+    // Reset player position using movement module
+    state.player.y = getInitialPlayerY(logicalHeight(), state.player.height, config.ENABLE_VERTICAL_MOVEMENT);
     state.player.trail = [];
     state.floatingTexts.length = 0; state.comboCount = 0; state.lastCollectTimestamp = 0;
-    state.activePowerUps.length = 0; state.powerUpPickups.length = 0; state.chainLightningArcs.length = 0; state.timeSlowRipples.length = 0; state.pendingRevengeMeteors.length = 0; state.modifiers = { ...defaultModifiers };
-    scoreElement.textContent = `S C O R E : ${state.score.toString().padStart(6, '0')}`;
+    state.activePowerUps.length = 0; state.powerUpPickups.length = 0; state.chainLightningArcs.length = 0; state.timeSlowRipples.length = 0; state.pendingRevengeMeteors.length = 0; state.modifiers = { ...defaultModifiers }; state.lastCatSpawnTimestamp = 0;
+    scoreElement.textContent = getScoreDisplayText(state.score);
   }
 
   // setup initial player and canvas
   resizeCanvas();
-  const initialY = config.ENABLE_VERTICAL_MOVEMENT 
-    ? logicalHeight() - config.PLAYER_VERTICAL_PADDING - 30 // 30 = player height
-    : logicalHeight() - 60;
-  state.player = { x: logicalWidth() / 2 - 25, y: initialY, width: 50, height: 30, speed: config.PLAYER_SPEED, trail: [] };
+  const playerHeight = 30;
+  const initialY = getInitialPlayerY(logicalHeight(), playerHeight, config.ENABLE_VERTICAL_MOVEMENT);
+  state.player = { x: logicalWidth() / 2 - 25, y: initialY, width: 50, height: playerHeight, speed: config.PLAYER_SPEED, trail: [] };
 
   let lastTimestamp = performance.now();
-  let fps = 60;
-  let debugEnabled = true;
-  // attach debug flags to state so renderers can read them
-  (state as any).debug = { grid: true, boxes: false, particles: true };
+  let debugEnabled = state.debugEnabled ?? true;
 
   // Debug panel DOM elements
   const debugPanel = document.getElementById('debugPanel') as HTMLElement;
@@ -430,9 +604,16 @@ export function startGame(): void {
   const debugMagnetStacks = document.getElementById('debugMagnetStacks') as HTMLElement;
   const debugMagnetRate = document.getElementById('debugMagnetRate') as HTMLElement;
   const debugMagnetTime = document.getElementById('debugMagnetTime') as HTMLElement;
+  const debugDifficulty = document.getElementById('debugDifficulty') as HTMLElement;
+  const difficultyFill = document.getElementById('difficultyFill') as HTMLElement;
+  const debugSpawnRate = document.getElementById('debugSpawnRate') as HTMLElement;
+  const debugPlayerPos = document.getElementById('debugPlayerPos') as HTMLElement;
   const statusGrid = document.getElementById('statusGrid') as HTMLElement;
   const statusBoxes = document.getElementById('statusBoxes') as HTMLElement;
   const statusParticles = document.getElementById('statusParticles') as HTMLElement;
+  const statusInvincibility = document.getElementById('statusInvincibility') as HTMLElement;
+  const statusMeteors = document.getElementById('statusMeteors') as HTMLElement;
+  const statusForceMaxDifficulty = document.getElementById('statusForceMaxDifficulty') as HTMLElement;
 
   function updateDebugPanel() {
     if (!debugPanel) return;
@@ -443,6 +624,21 @@ export function startGame(): void {
     debugDt.textContent = state.dtFactor.toFixed(2);
     debugParticlesEl.textContent = state.particles.length.toString();
     debugSpeed.textContent = state.gameSpeed.toFixed(2);
+
+    // Difficulty scaling indicator
+    const diffLevel = getDifficultyLevel(state.score);
+    const diffPercent = getDifficultyPercent(state.gameSpeed);
+    const isMaxDifficulty = state.gameSpeed >= config.difficulty.MAX_GAME_SPEED - 1e-6;
+    const maxDiffLevel = getMaxDifficultyLevel();
+    const displayLevel = isMaxDifficulty ? Math.min(diffLevel, maxDiffLevel) : diffLevel;
+    if (debugDifficulty) {
+      debugDifficulty.textContent = isMaxDifficulty ? `Lv.${displayLevel} (MAX!)` : `Lv.${diffLevel} (${diffPercent}%)`;
+      debugDifficulty.style.color = isMaxDifficulty ? '#ff4444' : diffPercent > 70 ? '#ffaa00' : '#00ff88';
+    }
+    if (difficultyFill) {
+      difficultyFill.style.width = `${diffPercent}%`;
+    }
+
     debugCrystals.textContent = state.crystals.length.toString();
     debugMeteors.textContent = state.meteors.length.toString();
     debugPickups.textContent = state.powerUpPickups.length.toString();
@@ -463,36 +659,72 @@ export function startGame(): void {
     debugMagnetRate.textContent = `${magnetRatePercent}%`;
     debugMagnetTime.textContent = magnetTimeLeft > 0 ? `${magnetTimeLeft.toFixed(1)}s` : '-';
     
-    const debug = (state as any).debug;
+    // Spawn rate display (crystal spawn rate)
+    debugSpawnRate.textContent = config.SPAWN_CRYSTAL_RATE.toFixed(3);
+    
+    // Player position display
+    if (state.player) {
+      debugPlayerPos.textContent = `${Math.round(state.player.x)}, ${Math.round(state.player.y)}`;
+    } else {
+      debugPlayerPos.textContent = '0, 0';
+    }
+    
+    const debug = state.debug || { grid: false, boxes: false, particles: false, invincibility: false, meteors: true, forceMaxDifficulty: false };
     statusGrid.textContent = debug.grid ? 'ON' : 'OFF';
     statusGrid.className = 'status ' + (debug.grid ? 'on' : 'off');
     statusBoxes.textContent = debug.boxes ? 'ON' : 'OFF';
     statusBoxes.className = 'status ' + (debug.boxes ? 'on' : 'off');
     statusParticles.textContent = debug.particles ? 'ON' : 'OFF';
     statusParticles.className = 'status ' + (debug.particles ? 'on' : 'off');
+    statusInvincibility.textContent = debug.invincibility ? 'ON' : 'OFF';
+    statusInvincibility.className = 'status ' + (debug.invincibility ? 'on' : 'off');
+    statusMeteors.textContent = debug.meteors ? 'ON' : 'OFF';
+    statusMeteors.className = 'status ' + (debug.meteors ? 'on' : 'off');
+    statusForceMaxDifficulty.textContent = debug.forceMaxDifficulty ? 'ON' : 'OFF';
+    statusForceMaxDifficulty.className = 'status ' + (debug.forceMaxDifficulty ? 'on' : 'off');
   }
 
   // Wire up clickable toggles
   document.getElementById('toggleGrid')?.addEventListener('click', () => {
-    (state as any).debug.grid = !(state as any).debug.grid;
+    if (state.debug) state.debug.grid = !state.debug.grid;
   });
   document.getElementById('toggleBoxes')?.addEventListener('click', () => {
-    (state as any).debug.boxes = !(state as any).debug.boxes;
+    if (state.debug) state.debug.boxes = !state.debug.boxes;
   });
   document.getElementById('toggleParticles')?.addEventListener('click', () => {
-    (state as any).debug.particles = !(state as any).debug.particles;
+    if (state.debug) state.debug.particles = !state.debug.particles;
+  });
+  document.getElementById('toggleInvincibility')?.addEventListener('click', () => {
+    if (state.debug) state.debug.invincibility = !state.debug.invincibility;
+  });
+  document.getElementById('toggleMeteors')?.addEventListener('click', () => {
+    if (state.debug) state.debug.meteors = !state.debug.meteors;
+  });
+  document.getElementById('toggleForceMaxDifficulty')?.addEventListener('click', () => {
+    if (state.debug) state.debug.forceMaxDifficulty = !state.debug.forceMaxDifficulty;
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === '`' || e.key === '~') debugEnabled = !debugEnabled;
-    if (e.key.toLowerCase() === 'g') (state as any).debug.grid = !(state as any).debug.grid;
-    if (e.key.toLowerCase() === 'b') (state as any).debug.boxes = !(state as any).debug.boxes;
-    if (e.key.toLowerCase() === 'p') (state as any).debug.particles = !(state as any).debug.particles;
+    if (e.key.toLowerCase() === 'g' && state.debug) state.debug.grid = !state.debug.grid;
+    if (e.key.toLowerCase() === 'b' && state.debug) state.debug.boxes = !state.debug.boxes;
+    if (e.key === 'Escape') {
+      togglePause();
+    }
+    if (e.key.toLowerCase() === 'p') {
+      if (e.shiftKey && state.debug) {
+        state.debug.particles = !state.debug.particles;
+      } else {
+        togglePause();
+      }
+    }
+    if (e.key.toLowerCase() === 'i' && state.debug) state.debug.invincibility = !state.debug.invincibility;
+    if (e.key.toLowerCase() === 'm' && state.debug) state.debug.meteors = !state.debug.meteors;
+    if (e.key.toLowerCase() === 'f' && state.debug) state.debug.forceMaxDifficulty = !state.debug.forceMaxDifficulty;
   });
 
   let lastFpsTimestamp = performance.now();
-  let fpsAccumulator = 0;
-  
+
   // FPS limiter settings
   const targetFrameTime = config.TARGET_FPS > 0 ? 1000 / config.TARGET_FPS : 0;
   let frameAccumulator = 0;
@@ -528,8 +760,8 @@ export function startGame(): void {
     // Scale animation time by game speed (slow-mo affects rotations, pulses, etc.)
     state.time += dtSeconds * state.modifiers.gameSpeed;
 
-    // render via renderer module (pass the whole state, but disable canvas debug overlay)
-    renderScene(Object.assign({ debugEnabled: false }, state));
+    // render via renderer module (canvas debug overlay disabled - use HTML panel instead)
+    renderScene({ ...state, debugEnabled: false });
     
     // Update the external HTML debug panel
     updateDebugPanel();
@@ -538,9 +770,9 @@ export function startGame(): void {
   }
 
   // Use state-driven restart request (set by input)
-  document.addEventListener('keydown', (e) => {
-    if (!state.gameRunning && (state as any)._restartRequested) {
-      (state as any)._restartRequested = false;
+  document.addEventListener('keydown', () => {
+    if (!state.gameRunning && state._restartRequested) {
+      state._restartRequested = false;
       restartGame();
     }
   });

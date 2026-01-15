@@ -9,10 +9,10 @@ describe('input', () => {
     state.gameRunning = false;
     initInput(state);
 
-    const ev = new KeyboardEvent('keydown', { key: 'a' });
+    const ev = new KeyboardEvent('keydown', { key: 'Enter' });
     document.dispatchEvent(ev);
 
-    expect(keys['a']).toBe(true);
+    expect(keys['enter']).toBe(true);
     expect((state as any)._restartRequested).toBe(true);
   });
 });

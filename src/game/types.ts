@@ -56,6 +56,17 @@ export interface Meteor {
   pulse: number;
 }
 
+export interface CatDrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  hue: number;
+  wobble: number;
+  pattern: 'tabby' | 'neon' | 'shadow';
+}
+
 export interface GridLine {
   y: number;
   opacity: number;
@@ -95,7 +106,7 @@ export interface PowerUpInstance {
   startedAt: number;
   expiresAt?: number;
   stacks: number;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export type MagnetStyle = 'horseshoe' | 'vortex' | 'ring' | 'field';
@@ -141,6 +152,9 @@ export interface DebugFlags {
   grid: boolean;
   boxes: boolean;
   particles: boolean;
+  invincibility: boolean;
+  meteors: boolean;
+  forceMaxDifficulty: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -165,12 +179,23 @@ export interface PendingRevengeMeteor {
   warningShown: boolean;  // Has the warning flash been shown?
 }
 
+// Viewport information for rendering
+export interface Viewport {
+  width: number;
+  height: number;
+  dpr: number;
+}
+
 export interface GameState {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   score: number;
   highScore: number;
   gameRunning: boolean;
+  paused: boolean;
+  resumeCountdownActive: boolean;
+  resumeCountdownTarget: number | null;
+  resumeCountdownValue?: number;
   gameSpeed: number;
   time: number;
   dtFactor: number;
@@ -194,4 +219,8 @@ export interface GameState {
   chainLightningArcs: ChainLightningArc[];
   timeSlowRipples: TimeSlowRipple[];
   pendingRevengeMeteors: PendingRevengeMeteor[];
+  _restartRequested?: boolean;
+  viewport?: Viewport;
+  cats: CatDrop[];
+  lastCatSpawnTimestamp: number;
 }

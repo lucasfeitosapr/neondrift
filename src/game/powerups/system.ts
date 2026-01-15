@@ -1,8 +1,8 @@
 import { defaultModifiers } from '../state';
-import { PowerUpInstance, PowerUpId } from '../types';
+import { GameState, PowerUpInstance, PowerUpId } from '../types';
 import { getPowerUpDefinition } from './definitions';
 
-export function activatePowerUp(state: any, id: PowerUpId, now = performance.now()): PowerUpInstance | null {
+export function activatePowerUp(state: GameState, id: PowerUpId, now = performance.now()): PowerUpInstance | null {
   const def = getPowerUpDefinition(id);
   if (!def) return null;
 
@@ -47,7 +47,7 @@ export function activatePowerUp(state: any, id: PowerUpId, now = performance.now
   return instance;
 }
 
-export function tickPowerUps(state: any, now = performance.now(), dtMs = 0) {
+export function tickPowerUps(state: GameState, now = performance.now(), dtMs = 0): void {
   const next: PowerUpInstance[] = [];
   for (const instance of state.activePowerUps) {
     const def = getPowerUpDefinition(instance.id);

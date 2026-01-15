@@ -63,9 +63,9 @@ function generateStars(width: number, height: number): BackgroundStar[] {
 
 export function drawGrid(state: GameState & { debug?: DebugFlags }) {
   const { ctx, canvas, time, dtFactor } = state;
-  
-  const lw = (canvas as any)._cssWidth || canvas.width;
-  const lh = (canvas as any)._cssHeight || canvas.height;
+
+  const lw = state.viewport?.width ?? canvas.width;
+  const lh = state.viewport?.height ?? canvas.height;
   
   // Regenerate stars and gradients if canvas size changed
   if (cachedForDimensions.w !== lw || cachedForDimensions.h !== lh) {
@@ -104,7 +104,7 @@ export function drawGrid(state: GameState & { debug?: DebugFlags }) {
   // Draw stars in two passes: non-glowing first, then glowing (reduces shadowBlur toggles)
   // Pass 1: All non-glowing stars (layers 0, 1, and most layer 2)
   ctx.shadowBlur = 0;
-  let glowStarIndices: number[] = [];
+  const glowStarIndices: number[] = [];
   
   for (let i = 0; i < cachedStars.length; i++) {
     const star = cachedStars[i];

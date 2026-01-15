@@ -1,7 +1,7 @@
 import { config } from './config';
-import { Crystal, CrystalType, Meteor } from './types';
+import { CatDrop, Crystal, CrystalType, Meteor } from './types';
 
-export function createCrystalEntity(canvas: HTMLCanvasElement, gameSpeed: number, score: number): Crystal {
+export function createCrystalEntity(logicalWidth: number, gameSpeed: number, score: number): Crystal {
   const typesPool: CrystalType[] = [];
   const thresholds = config.crystal.thresholds;
   
@@ -22,7 +22,7 @@ export function createCrystalEntity(canvas: HTMLCanvasElement, gameSpeed: number
   const chosenType = typesPool[Math.floor(Math.random() * typesPool.length)];
 
   return {
-    x: Math.random() * (canvas.width - config.crystal.size),
+    x: Math.random() * (logicalWidth - config.crystal.size),
     y: -config.crystal.size,
     width: config.crystal.size,
     height: config.crystal.size,
@@ -34,14 +34,29 @@ export function createCrystalEntity(canvas: HTMLCanvasElement, gameSpeed: number
   };
 }
 
-export function createMeteorEntity(canvas: HTMLCanvasElement, gameSpeed: number): Meteor {
+export function createMeteorEntity(logicalWidth: number, gameSpeed: number): Meteor {
   return {
-    x: Math.random() * (canvas.width - config.meteor.size),
+    x: Math.random() * (logicalWidth - config.meteor.size),
     y: -config.meteor.size,
     width: config.meteor.size,
     height: config.meteor.size,
     speed: gameSpeed + Math.random() * 3,
     rotation: 0,
     pulse: 0
+  };
+}
+
+export function createCatEntity(logicalWidth: number, gameSpeed: number): CatDrop {
+  const size = config.cat.size;
+  const patterns: CatDrop['pattern'][] = ['tabby', 'neon', 'shadow'];
+  return {
+    x: Math.random() * (logicalWidth - size),
+    y: -size,
+    width: size,
+    height: size,
+    speed: gameSpeed + config.cat.speedMinBonus + Math.random() * (config.cat.speedMaxBonus - config.cat.speedMinBonus),
+    hue: Math.random() * 360,
+    wobble: Math.random() * Math.PI * 2,
+    pattern: patterns[Math.floor(Math.random() * patterns.length)]
   };
 }

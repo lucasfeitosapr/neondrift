@@ -1,16 +1,40 @@
 export const config = {
   // Canvas
-  CANVAS_WIDTH: 400,
-  CANVAS_HEIGHT: 500,
+  CANVAS_WIDTH: 360,
+  CANVAS_HEIGHT: 640,
 
   // Gameplay
   INITIAL_GAME_SPEED: 2,
+
+  // ═══════════════════════════════════════════════════════════════
+  // DIFFICULTY SCALING - Controls how fast the game ramps up
+  // ═══════════════════════════════════════════════════════════════
+  difficulty: {
+    // Points needed to increase difficulty level
+    SCORE_MILESTONE: 500,
+    // Speed increase per milestone (lower = gentler curve)
+    SPEED_INCREMENT: 0.25,
+    // Maximum game speed cap (prevents insane speeds)
+    MAX_GAME_SPEED: 6,
+  },
+
   SPAWN_CRYSTAL_RATE: 0.050, // CHAOS MODE! More crystals = more chain lightning fun!
   SPAWN_METEOR_RATE: 0.016,  // Slightly more meteors to balance
   SPAWN_MAGNET_RATE: 0.014, // independent magnet spawn rate (boosted for stacking)
   SPAWN_CHAIN_LIGHTNING_RATE: 0.008, // Slightly more common to let players experience the chaos!
   SPAWN_TIME_SLOW_RATE: 0.004, // Same rarity as chain lightning
   MAGNET_PULL_STRENGTH: 4.8, // magnet pull multiplier (scaled by dtFactor)
+  dynamicDifficulty: {
+    combo: {
+      minComboForAggro: 3,
+      spawnBonusPerLevel: 0.08,
+      spawnMaxMultiplier: 1.6,
+      lowComboSpawnMultiplier: 0.9,
+      meteorSpeedBonusPerLevel: 0.05,
+      meteorSpeedMaxMultiplier: 1.35,
+      lowComboSpeedMultiplier: 0.85
+    }
+  },
 
   // Particles & pools
   PARTICLE_POOL_SIZE: 400,
@@ -21,7 +45,7 @@ export const config = {
     DECAY_NORMAL: 0.03,          // ~0.55s - regular crystal particles
     DECAY_EXPLOSION: 0.02,       // ~0.8s - player death explosion
     DECAY_METEOR_ZAP: 0.025,     // ~0.65s - chain lightning destroys meteor (dramatic!)
-    DECAY_CRYSTAL_CHAIN: 0.04,   // ~0.4s - chain lightning collects crystal (snappy)
+    DECAY_CRYSTAL_CHAIN: 0.04   // ~0.4s - chain lightning collects crystal (snappy)
   },
 
   // Combo engine
@@ -41,6 +65,17 @@ export const config = {
 
   meteor: {
     size: 30
+  },
+
+  cat: {
+    size: 26,
+    basePoints: 120,
+    pointsScalePerLevel: 0.08,
+    spawnChance: 0.0025,
+    spawnCooldownMs: 12000,
+    maxOnScreen: 3,
+    speedMinBonus: 1.2,
+    speedMaxBonus: 2.6
   },
 
   // Misc
@@ -139,7 +174,7 @@ export const config = {
       
       // Warning flash before meteor (so player knows something's coming)
       WARNING_FLASH: false,              // Brief screen edge flash
-      WARNING_COLOR: '#ff0044',         // Danger red
+      WARNING_COLOR: '#ff0044'         // Danger red
     }
   },
   
