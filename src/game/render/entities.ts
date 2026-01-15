@@ -11,6 +11,22 @@ export function drawTimeSlowEffects(state: GameState): void {
   
   const isTimeSlowActive = activePowerUps.some(p => p.id === 'time_slow');
   const now = performance.now();
+
+  const revengeWarning = {
+    windowMinMs: 60,
+    windowMaxMs: 140,
+    intensityScale: 0.55,
+    pulseSpeed: 0.90,
+    topBandMaxPx: 80,
+    topBandMaxRatio: 0.18,
+    indicatorHalfWidth: 10,
+    indicatorTopY: 6,
+    indicatorBaseY: 22,
+    indicatorAlphaBoost: 0.35,
+    lineAlphaScale: 0.75,
+    lineWidth: 12,
+    dashSegmentPx: 5
+  };
   
   ctx.save();
   
@@ -19,42 +35,42 @@ export function drawTimeSlowEffects(state: GameState): void {
   // ═══════════════════════════════════════════════════════════════
   if (config.timeSlow.revenge.WARNING_FLASH && pendingRevengeMeteors.length > 0) {
     for (const pending of pendingRevengeMeteors) {
-      if (pending.warningShown) {
-        const timeUntilSpawn = pending.spawnAt - now;
-        if (timeUntilSpawn > 0 && timeUntilSpawn <= 200) {
-          // Pulsing danger flash
-          const intensity = (1 - timeUntilSpawn / 200) * 0.4;
-          const pulseIntensity = intensity * (0.5 + Math.sin(now * 0.05) * 0.5);
-          
-          // Red vignette from edges
-          const gradient = ctx.createRadialGradient(lw / 2, lh / 2, lh * 0.3, lw / 2, lh / 2, lh * 0.7);
-          gradient.addColorStop(0, 'rgba(255, 0, 68, 0)');
-          gradient.addColorStop(1, `rgba(255, 0, 68, ${pulseIntensity})`);
-          ctx.fillStyle = gradient;
-          ctx.fillRect(0, 0, lw, lh);
-          
-          // Danger indicator at target position (top of screen, pointing down)
-          const indicatorX = pending.targetX;
-          ctx.fillStyle = `rgba(255, 0, 68, ${intensity + 0.3})`;
-          ctx.shadowColor = '#ff0044';
-          ctx.shadowBlur = 15;
-          ctx.beginPath();
-          ctx.moveTo(indicatorX, 0);
-          ctx.lineTo(indicatorX - 10, -15);
-          ctx.lineTo(indicatorX + 10, -15);
-          ctx.closePath();
-          ctx.fill();
-          
-          // Pulsing line from top showing where meteor will come
-          ctx.strokeStyle = `rgba(255, 0, 68, ${intensity * 0.6})`;
-          ctx.lineWidth = 2;
-          ctx.setLineDash([5, 5]);
-          ctx.beginPath();
-          ctx.moveTo(indicatorX, 0);
-          ctx.lineTo(indicatorX, 40);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
+      const timeUntilSpawn = pending.spawnAt - now;
+      const warningWindowMs = Math.max(
+        revengeWarning.windowMinMs,
+        Math.min(revengeWarning.windowMaxMs, config.timeSlow.revenge.DELAY_MS)
+      );
+      if (timeUntilSpawn > 0 && timeUntilSpawn <= warningWindowMs) {
+        const t = 1 - timeUntilSpawn / warningWindowMs;
+        const intensity = t * revengeWarning.intensityScale;
+        const pulseIntensity = intensity * (0.5 + Math.sin(now * revengeWarning.pulseSpeed) * 0.5);
+
+        const topBandHeight = Math.min(revengeWarning.topBandMaxPx, lh * revengeWarning.topBandMaxRatio);
+        const topBand = ctx.createLinearGradient(0, 0, 0, topBandHeight);
+        topBand.addColorStop(0, `rgba(255, 0, 68, ${pulseIntensity})`);
+        topBand.addColorStop(1, 'rgba(255, 0, 68, 0)');
+        ctx.fillStyle = topBand;
+        ctx.fillRect(0, 0, lw, topBandHeight);
+
+        const indicatorX = pending.targetX;
+        ctx.fillStyle = `rgba(255, 0, 68, ${Math.min(1, intensity + revengeWarning.indicatorAlphaBoost)})`;
+        ctx.shadowColor = '#ff0044';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.moveTo(indicatorX, revengeWarning.indicatorTopY);
+        ctx.lineTo(indicatorX - revengeWarning.indicatorHalfWidth, revengeWarning.indicatorBaseY);
+        ctx.lineTo(indicatorX + revengeWarning.indicatorHalfWidth, revengeWarning.indicatorBaseY);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(255, 0, 68, ${intensity * revengeWarning.lineAlphaScale})`;
+        ctx.lineWidth = revengeWarning.lineWidth;
+        ctx.setLineDash([revengeWarning.dashSegmentPx, revengeWarning.dashSegmentPx]);
+        ctx.beginPath();
+        ctx.moveTo(indicatorX, 0);
+        ctx.lineTo(indicatorX, topBandHeight);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
     }
   }

@@ -22,6 +22,7 @@ import {
   getComboText
 } from './scoring';
 import { EventManager } from './eventManager';
+import { removeAtSwap } from './utils/arrayUtils';
 
 export function startGame(): void {
   // ...existing code migrated from neon_drift.html script section...
@@ -247,19 +248,19 @@ export function startGame(): void {
     const dtMs = state.dtFactor * (1000 / 60);
     tickPowerUps(state, now, dtMs);
     
-    // Decay chain lightning arcs
+    // Decay chain lightning arcs (optimized: swap-and-pop instead of splice)
     for (let i = state.chainLightningArcs.length - 1; i >= 0; i--) {
       state.chainLightningArcs[i].life -= 0.03 * state.dtFactor;
       if (state.chainLightningArcs[i].life <= 0) {
-        state.chainLightningArcs.splice(i, 1);
+        removeAtSwap(state.chainLightningArcs, i);
       }
     }
     
-    // Decay time slow ripples
+    // Decay time slow ripples (optimized: swap-and-pop instead of splice)
     for (let i = state.timeSlowRipples.length - 1; i >= 0; i--) {
       const ripple = state.timeSlowRipples[i];
       if (now - ripple.startTime >= ripple.durationMs) {
-        state.timeSlowRipples.splice(i, 1);
+        removeAtSwap(state.timeSlowRipples, i);
       }
     }
     
@@ -281,7 +282,7 @@ export function startGame(): void {
       // Time to spawn!
       if (now >= pending.spawnAt) {
         spawnRevengeMeteor(state, pending.targetX, pending.targetY, pending.speed);
-        state.pendingRevengeMeteors.splice(i, 1);
+        removeAtSwap(state.pendingRevengeMeteors, i);
       }
     }
 
@@ -428,13 +429,13 @@ export function startGame(): void {
         createFloatingText(crystal.x + crystal.width/2, crystal.y, getPointsText(collectionResult.pointsAwarded), '#00ffff');
         if (state.comboCount > 1 && state.player) createFloatingText(state.player.x + state.player.width/2, state.player.y - 10, getComboText(state.comboCount), '#ff00ff');
 
-        state.crystals.splice(i, 1);
+        removeAtSwap(state.crystals, i);
         scoreElement.textContent = getScoreDisplayText(state.score);
         if (shouldIncreaseGameSpeed(previousScore, state.score)) { state.gameSpeed = calculateNewGameSpeed(state.gameSpeed); }
         // Force max difficulty if toggle is on
         if (state.debug?.forceMaxDifficulty) { state.gameSpeed = config.difficulty.MAX_GAME_SPEED; }
         if (isNewHighScore(state.score, state.highScore)) { state.highScore = state.score; try { localStorage.setItem('neondrift_highscore', String(state.highScore)); } catch { /* localStorage unavailable */ } highScoreElement.textContent = getHighScoreDisplayText(state.highScore); }
-      } else if (state.crystals[i] && state.crystals[i].y > logicalHeight()) { state.crystals.splice(i, 1); }
+      } else if (state.crystals[i] && state.crystals[i].y > logicalHeight()) { removeAtSwap(state.crystals, i); }
     }
 
     for (let i = state.cats.length - 1; i >= 0; i--) {
@@ -451,7 +452,7 @@ export function startGame(): void {
         state.score += points;
         createParticle(cat.x + cat.width / 2, cat.y + cat.height / 2, '255, 150, 255');
         createFloatingText(cat.x + cat.width / 2, cat.y, `+${points} CAT`, '#ff99ff');
-        state.cats.splice(i, 1);
+        removeAtSwap(state.cats, i);
         scoreElement.textContent = getScoreDisplayText(state.score);
 
         if (shouldIncreaseGameSpeed(previousScore, state.score)) { state.gameSpeed = calculateNewGameSpeed(state.gameSpeed); }
@@ -462,7 +463,7 @@ export function startGame(): void {
           highScoreElement.textContent = getHighScoreDisplayText(state.highScore);
         }
       } else if (state.cats[i] && state.cats[i].y > logicalHeight()) {
-        state.cats.splice(i, 1);
+        removeAtSwap(state.cats, i);
       }
     }
 
@@ -474,7 +475,7 @@ export function startGame(): void {
         createParticle(state.player.x + state.player.width/2, state.player.y + state.player.height/2, '255, 0, 255', config.particles.DECAY_EXPLOSION); 
         return; 
       }
-      else if (state.meteors[i] && state.meteors[i].y > logicalHeight()) { state.meteors.splice(i, 1); }
+      else if (state.meteors[i] && state.meteors[i].y > logicalHeight()) { removeAtSwap(state.meteors, i); }
     }
 
     const catCooldownPassed = (now - state.lastCatSpawnTimestamp) >= config.cat.spawnCooldownMs;

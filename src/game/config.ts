@@ -173,7 +173,7 @@ export const config = {
       SPEED_MAX: 9,                     // Maximum speed (FAST!)
       
       // Warning flash before meteor (so player knows something's coming)
-      WARNING_FLASH: false,              // Brief screen edge flash
+      WARNING_FLASH: true,              // Brief screen edge flash
       WARNING_COLOR: '#ff0044'         // Danger red
     }
   },

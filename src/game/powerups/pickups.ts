@@ -1,4 +1,5 @@
 import { GameState, MagnetStyle, PowerUpId, PowerUpPickup, TimeSlowStyle } from '../types';
+import { removeAtSwap } from '../utils/arrayUtils';
 
 const PICKUP_SIZE = 22;
 
@@ -21,7 +22,7 @@ export function updatePowerUpPickups(
     p.y += p.speed * dtFactor * gameSpeed;
 
     if (p.y > logicalHeight + PICKUP_SIZE) {
-      state.powerUpPickups.splice(i, 1);
+      removeAtSwap(state.powerUpPickups, i);
       continue;
     }
 
@@ -33,7 +34,7 @@ export function updatePowerUpPickups(
       p.y + p.height > state.player.y;
     if (collides) {
       const pickup = state.powerUpPickups[i];
-      state.powerUpPickups.splice(i, 1);
+      removeAtSwap(state.powerUpPickups, i);
       onCollect(pickup.id, pickup);
     }
   }

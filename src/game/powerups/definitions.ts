@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { ChainLightningArc, Crystal, CrystalColor, GameState, Particle, PowerUpDefinition, PowerUpId } from '../types';
+import { removeAtSwap } from '../utils/arrayUtils';
 
 // ═══════════════════════════════════════════════════════════════
 // PARTICLE HELPER - Spawn particles directly from power-ups
@@ -408,8 +409,8 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
             vy: -0.5
           });
           
-          // Remove meteor
-          state.meteors.splice(i, 1);
+          // Remove meteor (optimized: swap-and-pop instead of splice)
+          removeAtSwap(state.meteors, i);
           meteorsDestroyed++;
         }
       }

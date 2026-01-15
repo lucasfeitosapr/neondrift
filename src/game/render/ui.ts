@@ -1,4 +1,5 @@
 import { GameState, PowerUpId } from '../types';
+import { removeAtSwap } from '../utils/arrayUtils';
 
 const hudPalette: Record<PowerUpId, string> = {
   magnet: '#7ce7ff',
@@ -21,7 +22,7 @@ export function drawFloatingTexts(state: GameState & { dtFactor: number }): void
     ctx.textAlign = 'center';
     ctx.fillText(ft.text, ft.x, ft.y);
     ctx.restore();
-    if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+    if (ft.life <= 0) removeAtSwap(state.floatingTexts, i);
   }
 }
 
