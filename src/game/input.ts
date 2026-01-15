@@ -1,4 +1,5 @@
 import { GameState } from './types';
+import { EventManager } from './eventManager';
 
 export const keys: Record<string, boolean> = {};
 
@@ -24,20 +25,24 @@ export const touchState = {
 const TOUCH_DEADZONE = 6; // pixels before movement registers
 const TOUCH_MAX_DISTANCE = 90; // distance for full speed
 
-export function initInput(state?: GameState): void {
+export function initInput(state?: GameState, eventManager?: EventManager): void {
+  const em = eventManager || new EventManager();
+  
   // normalize to lowercase keys
-  document.addEventListener('keydown', (e: KeyboardEvent) => {
+  const keydownHandler = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase();
     keys[k] = true;
     if (state && !state.gameRunning && k === 'enter') {
       state._restartRequested = true;
     }
-  });
+  };
+  em.addEventListener(document, 'keydown', keydownHandler);
 
-  document.addEventListener('keyup', (e: KeyboardEvent) => {
+  const keyupHandler = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase();
     keys[k] = false;
-  });
+  };
+  em.addEventListener(document, 'keyup', keyupHandler);
 
   // ═══════════════════════════════════════════════════════════════
   // TOUCH CONTROLS - Virtual joystick style
@@ -51,7 +56,7 @@ export function initInput(state?: GameState): void {
   // MOUSE CONTROLS - Mirror touch joystick behavior
   // Click + drag on canvas to move
   // ═══════════════════════════════════════════════════════════════
-  canvas.addEventListener('mousedown', (e: MouseEvent) => {
+  const canvasMouseDownHandler = (e: MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
     touchActive = true;
@@ -69,24 +74,27 @@ export function initInput(state?: GameState): void {
     if (state && !state.gameRunning) {
       state._restartRequested = true;
     }
-  });
+  };
+  em.addEventListener(canvas, 'mousedown', canvasMouseDownHandler);
 
-  document.addEventListener('mousedown', () => {
+  const documentMouseDownHandler = () => {
     if (state && !state.gameRunning) {
       state._restartRequested = true;
     }
-  });
+  };
+  em.addEventListener(document, 'mousedown', documentMouseDownHandler);
 
-  document.addEventListener('mousemove', (e: MouseEvent) => {
+  const mousemoveHandler = (e: MouseEvent) => {
     if (!touchActive) return;
     touchCurrentX = e.clientX;
     touchCurrentY = e.clientY;
     touchState.clientX = e.clientX;
     touchState.clientY = e.clientY;
     updateTouchKeys();
-  });
+  };
+  em.addEventListener(document, 'mousemove', mousemoveHandler);
 
-  document.addEventListener('mouseup', (e: MouseEvent) => {
+  const mouseupHandler = (e: MouseEvent) => {
     if (e.button !== 0) return;
     if (!touchActive) return;
     touchActive = false;
@@ -101,9 +109,10 @@ export function initInput(state?: GameState): void {
     keys['arrowright'] = false;
     keys['arrowup'] = false;
     keys['arrowdown'] = false;
-  });
+  };
+  em.addEventListener(document, 'mouseup', mouseupHandler);
 
-  canvas.addEventListener('touchstart', (e: TouchEvent) => {
+  const touchstartHandler = (e: TouchEvent) => {
     e.preventDefault();
     const touch = e.touches[0];
     touchActive = true;
@@ -121,15 +130,17 @@ export function initInput(state?: GameState): void {
     if (state && !state.gameRunning) {
       state._restartRequested = true;
     }
-  }, { passive: false });
+  };
+  em.addEventListener(canvas, 'touchstart', touchstartHandler, { passive: false });
 
-  document.addEventListener('touchstart', () => {
+  const documentTouchstartHandler = () => {
     if (state && !state.gameRunning) {
       state._restartRequested = true;
     }
-  }, { passive: true });
+  };
+  em.addEventListener(document, 'touchstart', documentTouchstartHandler, { passive: true });
 
-  canvas.addEventListener('touchmove', (e: TouchEvent) => {
+  const touchmoveHandler = (e: TouchEvent) => {
     e.preventDefault();
     if (!touchActive) return;
     const touch = e.touches[0];
@@ -138,9 +149,10 @@ export function initInput(state?: GameState): void {
     touchState.clientX = touch.clientX;
     touchState.clientY = touch.clientY;
     updateTouchKeys();
-  }, { passive: false });
+  };
+  em.addEventListener(canvas, 'touchmove', touchmoveHandler, { passive: false });
 
-  canvas.addEventListener('touchend', (e: TouchEvent) => {
+  const touchendHandler = (e: TouchEvent) => {
     e.preventDefault();
     touchActive = false;
     touchState.active = false;
@@ -154,9 +166,10 @@ export function initInput(state?: GameState): void {
     keys['arrowright'] = false;
     keys['arrowup'] = false;
     keys['arrowdown'] = false;
-  }, { passive: false });
+  };
+  em.addEventListener(canvas, 'touchend', touchendHandler, { passive: false });
 
-  canvas.addEventListener('touchcancel', () => {
+  const touchcancelHandler = () => {
     touchActive = false;
     touchState.active = false;
     touchState.strength = 0;
@@ -168,7 +181,8 @@ export function initInput(state?: GameState): void {
     keys['arrowright'] = false;
     keys['arrowup'] = false;
     keys['arrowdown'] = false;
-  });
+  };
+  em.addEventListener(canvas, 'touchcancel', touchcancelHandler);
 
   function updateTouchKeys() {
     const dx = touchCurrentX - touchStartX;

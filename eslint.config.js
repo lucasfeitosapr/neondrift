@@ -10,7 +10,7 @@ export default [
       parser: tsParser,
       ecmaVersion: 2021,
       sourceType: 'module',
-      globals: {
+        globals: {
         document: 'readonly',
         window: 'readonly',
         localStorage: 'readonly',
@@ -25,7 +25,12 @@ export default [
         TouchEvent: 'readonly',
         CanvasGradient: 'readonly',
         MutationObserver: 'readonly',
-        fetch: 'readonly'
+        fetch: 'readonly',
+        EventTarget: 'readonly',
+        EventListener: 'readonly',
+        Event: 'readonly',
+        AddEventListenerOptions: 'readonly',
+        EventListenerOptions: 'readonly'
       }
     },
     plugins: {

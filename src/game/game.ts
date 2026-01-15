@@ -21,6 +21,7 @@ import {
   getPointsText,
   getComboText
 } from './scoring';
+import { EventManager } from './eventManager';
 
 export function startGame(): void {
   // ...existing code migrated from neon_drift.html script section...
@@ -28,6 +29,9 @@ export function startGame(): void {
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
   const scoreElement = document.getElementById('score') as HTMLElement;
   const highScoreElement = document.getElementById('highScore') as HTMLElement;
+
+  // Event manager to track and clean up event listeners
+  const eventManager = new EventManager();
 
   // Helpers to read logical (CSS) canvas size when DPR scaling is applied
   function logicalWidth() { return state.viewport?.width ?? canvas.width; }
@@ -72,9 +76,11 @@ export function startGame(): void {
     setPauseState(next, { showCountdown: !next });
   }
 
-  pauseButton?.addEventListener('click', () => {
-    togglePause();
-  });
+  if (pauseButton) {
+    eventManager.addEventListener(pauseButton, 'click', () => {
+      togglePause();
+    });
+  }
 
   syncPauseButton();
 
@@ -124,7 +130,7 @@ export function startGame(): void {
   }
 
   // Input handling
-  initInput(state);
+  initInput(state, eventManager);
 
   // Responsive DPR-aware resize handler: set CSS size and high-DPI backing buffer
   function resizeCanvas() {
@@ -357,7 +363,7 @@ export function startGame(): void {
         // This makes it feel better - you see the crystal first, then it gets pulled!
         const isOnScreen = crystal.y > 0;
         
-        if (isOnScreen) {
+        if (isOnScreen && state.player) {
           const cx = crystal.x + crystal.width / 2;
           const cy = crystal.y + crystal.height / 2;
           const px = state.player.x + state.player.width / 2;
@@ -401,7 +407,7 @@ export function startGame(): void {
 
       crystal.y += crystal.speed * state.dtFactor * state.modifiers.gameSpeed;
       crystal.glow = Math.sin(state.time * 3) * 0.3 + 0.7;
-      if (checkCollision(state.player, crystal)) {
+      if (state.player && checkCollision(state.player, crystal)) {
         // Use scoring module for crystal collection
         const previousScore = state.score;
         const collectionResult = processCrystalCollection(
@@ -420,7 +426,7 @@ export function startGame(): void {
         switch(crystal.type.color) { case 'purple': particleColor = '170, 0, 255'; break; case 'gold': particleColor = '255, 170, 0'; break; case 'rainbow': particleColor = 'rainbow'; break; default: particleColor = '0, 255, 255'; }
         createParticle(crystal.x + crystal.width/2, crystal.y + crystal.height/2, particleColor);
         createFloatingText(crystal.x + crystal.width/2, crystal.y, getPointsText(collectionResult.pointsAwarded), '#00ffff');
-        if (state.comboCount > 1) createFloatingText(state.player.x + state.player.width/2, state.player.y - 10, getComboText(state.comboCount), '#ff00ff');
+        if (state.comboCount > 1 && state.player) createFloatingText(state.player.x + state.player.width/2, state.player.y - 10, getComboText(state.comboCount), '#ff00ff');
 
         state.crystals.splice(i, 1);
         scoreElement.textContent = getScoreDisplayText(state.score);
@@ -435,7 +441,7 @@ export function startGame(): void {
       const cat = state.cats[i];
       cat.y += cat.speed * state.dtFactor * state.modifiers.gameSpeed;
 
-      if (checkCollision(state.player, cat)) {
+      if (state.player && checkCollision(state.player, cat)) {
         const previousScore = state.score;
         const difficultyLevel = getDifficultyLevel(state.score);
         const points = Math.floor(
@@ -462,7 +468,12 @@ export function startGame(): void {
 
     for (let i = state.meteors.length - 1; i >= 0; i--) {
       state.meteors[i].y += state.meteors[i].speed * comboScaling.meteorSpeedMultiplier * state.dtFactor * state.modifiers.gameSpeed;
-      if (checkPlayerCollision(state.player, state.meteors[i]) && !state.debug?.invincibility) { state.gameRunning = false; syncPauseButton(); createParticle(state.player.x + state.player.width/2, state.player.y + state.player.height/2, '255, 0, 255', config.particles.DECAY_EXPLOSION); return; }
+      if (state.player && checkPlayerCollision(state.player, state.meteors[i]) && !state.debug?.invincibility) { 
+        state.gameRunning = false; 
+        syncPauseButton(); 
+        createParticle(state.player.x + state.player.width/2, state.player.y + state.player.height/2, '255, 0, 255', config.particles.DECAY_EXPLOSION); 
+        return; 
+      }
       else if (state.meteors[i] && state.meteors[i].y > logicalHeight()) { state.meteors.splice(i, 1); }
     }
 
@@ -684,26 +695,44 @@ export function startGame(): void {
   }
 
   // Wire up clickable toggles
-  document.getElementById('toggleGrid')?.addEventListener('click', () => {
-    if (state.debug) state.debug.grid = !state.debug.grid;
-  });
-  document.getElementById('toggleBoxes')?.addEventListener('click', () => {
-    if (state.debug) state.debug.boxes = !state.debug.boxes;
-  });
-  document.getElementById('toggleParticles')?.addEventListener('click', () => {
-    if (state.debug) state.debug.particles = !state.debug.particles;
-  });
-  document.getElementById('toggleInvincibility')?.addEventListener('click', () => {
-    if (state.debug) state.debug.invincibility = !state.debug.invincibility;
-  });
-  document.getElementById('toggleMeteors')?.addEventListener('click', () => {
-    if (state.debug) state.debug.meteors = !state.debug.meteors;
-  });
-  document.getElementById('toggleForceMaxDifficulty')?.addEventListener('click', () => {
-    if (state.debug) state.debug.forceMaxDifficulty = !state.debug.forceMaxDifficulty;
-  });
+  const toggleGrid = document.getElementById('toggleGrid');
+  if (toggleGrid) {
+    eventManager.addEventListener(toggleGrid, 'click', () => {
+      if (state.debug) state.debug.grid = !state.debug.grid;
+    });
+  }
+  const toggleBoxes = document.getElementById('toggleBoxes');
+  if (toggleBoxes) {
+    eventManager.addEventListener(toggleBoxes, 'click', () => {
+      if (state.debug) state.debug.boxes = !state.debug.boxes;
+    });
+  }
+  const toggleParticles = document.getElementById('toggleParticles');
+  if (toggleParticles) {
+    eventManager.addEventListener(toggleParticles, 'click', () => {
+      if (state.debug) state.debug.particles = !state.debug.particles;
+    });
+  }
+  const toggleInvincibility = document.getElementById('toggleInvincibility');
+  if (toggleInvincibility) {
+    eventManager.addEventListener(toggleInvincibility, 'click', () => {
+      if (state.debug) state.debug.invincibility = !state.debug.invincibility;
+    });
+  }
+  const toggleMeteors = document.getElementById('toggleMeteors');
+  if (toggleMeteors) {
+    eventManager.addEventListener(toggleMeteors, 'click', () => {
+      if (state.debug) state.debug.meteors = !state.debug.meteors;
+    });
+  }
+  const toggleForceMaxDifficulty = document.getElementById('toggleForceMaxDifficulty');
+  if (toggleForceMaxDifficulty) {
+    eventManager.addEventListener(toggleForceMaxDifficulty, 'click', () => {
+      if (state.debug) state.debug.forceMaxDifficulty = !state.debug.forceMaxDifficulty;
+    });
+  }
 
-  document.addEventListener('keydown', (e) => {
+  const keydownHandler = (e: KeyboardEvent) => {
     if (e.key === '`' || e.key === '~') debugEnabled = !debugEnabled;
     if (e.key.toLowerCase() === 'g' && state.debug) state.debug.grid = !state.debug.grid;
     if (e.key.toLowerCase() === 'b' && state.debug) state.debug.boxes = !state.debug.boxes;
@@ -720,7 +749,8 @@ export function startGame(): void {
     if (e.key.toLowerCase() === 'i' && state.debug) state.debug.invincibility = !state.debug.invincibility;
     if (e.key.toLowerCase() === 'm' && state.debug) state.debug.meteors = !state.debug.meteors;
     if (e.key.toLowerCase() === 'f' && state.debug) state.debug.forceMaxDifficulty = !state.debug.forceMaxDifficulty;
-  });
+  };
+  eventManager.addEventListener(document, 'keydown', keydownHandler);
 
   let lastFpsTimestamp = performance.now();
 
@@ -769,15 +799,25 @@ export function startGame(): void {
   }
 
   // Use state-driven restart request (set by input)
-  document.addEventListener('keydown', () => {
+  const restartKeyHandler = () => {
     if (!state.gameRunning && state._restartRequested) {
       state._restartRequested = false;
       restartGame();
     }
-  });
+  };
+  eventManager.addEventListener(document, 'keydown', restartKeyHandler);
 
   // wire resize event
-  window.addEventListener('resize', () => { requestAnimationFrame(resizeCanvas); });
+  const resizeHandler = () => { requestAnimationFrame(resizeCanvas); };
+  eventManager.addEventListener(window, 'resize', resizeHandler);
+
+  // Cleanup function to remove all event listeners
+  function cleanup() {
+    eventManager.cleanup();
+  }
+
+  // Store cleanup function in state for potential future use
+  (state as GameState & { _cleanup?: () => void })._cleanup = cleanup;
 
   restartGame(); lastTimestamp = performance.now(); requestAnimationFrame(gameLoop);
 }
