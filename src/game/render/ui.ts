@@ -6,7 +6,7 @@ const hudPalette: Record<PowerUpId, string> = {
   chain_lightning: '#ffd166'
 };
 
-export function drawFloatingTexts(state: GameState & { dtFactor: number }) {
+export function drawFloatingTexts(state: GameState & { dtFactor: number }): void {
   const { ctx } = state;
   for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
     const ft = state.floatingTexts[i];
@@ -25,7 +25,7 @@ export function drawFloatingTexts(state: GameState & { dtFactor: number }) {
   }
 }
 
-export function drawUI(state: GameState & { gameRunning: boolean; score: number; highScore: number }) {
+export function drawUI(state: GameState & { gameRunning: boolean; score: number; highScore: number }): void {
   const { ctx, canvas, activePowerUps, gameRunning } = state;
   const lw = state.viewport?.width ?? canvas.width;
   const lh = state.viewport?.height ?? canvas.height;

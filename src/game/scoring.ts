@@ -75,7 +75,7 @@ export function processCrystalCollection(
     pointsAwarded,
     newComboCount,
     comboMultiplier,
-    comboMaintained,
+    comboMaintained
   };
 }
 
@@ -120,8 +120,7 @@ export function getDifficultyLevel(
 export function getMaxDifficultyLevel(
   initialSpeed: number = config.INITIAL_GAME_SPEED,
   maxSpeed: number = config.difficulty.MAX_GAME_SPEED,
-  increment: number = config.difficulty.SPEED_INCREMENT,
-  milestone: number = config.difficulty.SCORE_MILESTONE
+  increment: number = config.difficulty.SPEED_INCREMENT
 ): number {
   const numIncrements = Math.floor((maxSpeed - initialSpeed) / increment);
   return numIncrements + 1;

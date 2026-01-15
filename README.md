@@ -15,6 +15,17 @@ Build
 - npm run build
 - npm run preview
 
+CI
+- GitHub Actions workflow at `.github/workflows/ci.yml`
+- Gitea Actions workflow at `.gitea/workflows/ci.yml`
+- Pipeline runs lint, tests (with coverage), build, and Docker image build
+- Artifacts uploaded: `coverage/` (HTML + json) and `dist/` (built site)
+
+Branch protection (recommended)
+- Require the CI workflow to pass before merge
+- Require PRs for `main`/`master`
+- Enable linear history and dismiss stale approvals on new commits
+
 Controls
 - Move: Left / Right arrows or A / D
 - Restart: press any key when game over

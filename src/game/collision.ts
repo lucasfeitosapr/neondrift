@@ -54,7 +54,7 @@ export function checkPlayerCollision(
 export function getCenter(box: BoundingBox): { x: number; y: number } {
   return {
     x: box.x + box.width / 2,
-    y: box.y + box.height / 2,
+    y: box.y + box.height / 2
   };
 }
 

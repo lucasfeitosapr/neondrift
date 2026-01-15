@@ -19,7 +19,7 @@ import {
   getScoreDisplayText,
   getHighScoreDisplayText,
   getPointsText,
-  getComboText,
+  getComboText
 } from './scoring';
 
 export function startGame(): void {
@@ -98,7 +98,7 @@ export function startGame(): void {
       lowComboSpawnMultiplier,
       meteorSpeedBonusPerLevel,
       meteorSpeedMaxMultiplier,
-      lowComboSpeedMultiplier,
+      lowComboSpeedMultiplier
     } = comboSettings;
 
     if (comboCount >= minComboForAggro) {
@@ -289,16 +289,17 @@ export function startGame(): void {
       const scaleX = lw / rect.width;
       const scaleY = lh / rect.height;
 
-      if (!(state as any)._touchAnchor) {
-        (state as any)._touchAnchor = {
+      if (!state._touchAnchor) {
+        state._touchAnchor = {
           playerX: state.player.x,
           playerY: state.player.y,
           startX: touchState.startClientX,
-          startY: touchState.startClientY,
+          startY: touchState.startClientY
         };
       }
 
-      const anchor = (state as any)._touchAnchor;
+      const anchor = state._touchAnchor;
+      if (!anchor) return;
       const dx = (touchState.clientX - anchor.startX) * scaleX;
       const dy = (touchState.clientY - anchor.startY) * scaleY;
 
@@ -316,14 +317,12 @@ export function startGame(): void {
       state.player.x = clamped.x;
       state.player.y = clamped.y;
     } else {
-      if ((state as any)._touchAnchor) {
-        (state as any)._touchAnchor = null;
-      }
+      state._touchAnchor = null;
       const movementInput: MovementInput = {
         left: keys['arrowleft'] || keys['a'],
         right: keys['arrowright'] || keys['d'],
         up: keys['arrowup'] || keys['w'],
-        down: keys['arrowdown'] || keys['s'],
+        down: keys['arrowdown'] || keys['s']
       };
       const newPos = updatePlayerPosition(
         state.player,

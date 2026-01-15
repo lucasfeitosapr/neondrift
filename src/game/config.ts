@@ -15,7 +15,7 @@ export const config = {
     // Speed increase per milestone (lower = gentler curve)
     SPEED_INCREMENT: 0.25,
     // Maximum game speed cap (prevents insane speeds)
-    MAX_GAME_SPEED: 6,
+    MAX_GAME_SPEED: 6
   },
 
   SPAWN_CRYSTAL_RATE: 0.050, // CHAOS MODE! More crystals = more chain lightning fun!

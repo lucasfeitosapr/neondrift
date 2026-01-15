@@ -5,7 +5,7 @@ import { drawFloatingTexts, drawUI } from './render/ui';
 import { drawDebug } from './debug';
 import { GameState } from './types';
 
-export function renderScene(state: GameState & { debugEnabled?: boolean }) {
+export function renderScene(state: GameState & { debugEnabled?: boolean }): void {
   const { ctx, canvas } = state;
   const lw = state.viewport?.width ?? canvas.width;
   const lh = state.viewport?.height ?? canvas.height;

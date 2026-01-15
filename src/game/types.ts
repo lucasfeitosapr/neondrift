@@ -186,6 +186,13 @@ export interface Viewport {
   dpr: number;
 }
 
+export interface TouchAnchor {
+  playerX: number;
+  playerY: number;
+  startX: number;
+  startY: number;
+}
+
 export interface GameState {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -220,6 +227,7 @@ export interface GameState {
   timeSlowRipples: TimeSlowRipple[];
   pendingRevengeMeteors: PendingRevengeMeteor[];
   _restartRequested?: boolean;
+  _touchAnchor?: TouchAnchor | null;
   viewport?: Viewport;
   cats: CatDrop[];
   lastCatSpawnTimestamp: number;

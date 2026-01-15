@@ -61,7 +61,7 @@ function generateStars(width: number, height: number): BackgroundStar[] {
   return stars;
 }
 
-export function drawGrid(state: GameState & { debug?: DebugFlags }) {
+export function drawGrid(state: GameState & { debug?: DebugFlags }): void {
   const { ctx, canvas, time, dtFactor } = state;
 
   const lw = state.viewport?.width ?? canvas.width;

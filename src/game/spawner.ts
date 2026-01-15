@@ -2,13 +2,13 @@ import { config } from './config';
 import { createCatEntity, createCrystalEntity, createMeteorEntity } from './entities';
 import { CatDrop, GameState, Meteor } from './types';
 
-export function spawnCrystal(state: Pick<GameState, 'canvas' | 'viewport' | 'gameSpeed' | 'score' | 'crystals'>) {
+export function spawnCrystal(state: Pick<GameState, 'canvas' | 'viewport' | 'gameSpeed' | 'score' | 'crystals'>): void {
   const logicalWidth = state.viewport?.width ?? state.canvas.width;
   const c = createCrystalEntity(logicalWidth, state.gameSpeed, state.score);
   state.crystals.push(c);
 }
 
-export function spawnMeteor(state: Pick<GameState, 'canvas' | 'viewport' | 'gameSpeed' | 'meteors'>) {
+export function spawnMeteor(state: Pick<GameState, 'canvas' | 'viewport' | 'gameSpeed' | 'meteors'>): void {
   const logicalWidth = state.viewport?.width ?? state.canvas.width;
   const m = createMeteorEntity(logicalWidth, state.gameSpeed);
   state.meteors.push(m);

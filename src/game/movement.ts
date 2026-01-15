@@ -99,7 +99,7 @@ export function getMovementBounds(
     minY: enableVerticalMovement ? verticalPadding : canvasHeight - playerHeight,
     maxY: enableVerticalMovement
       ? canvasHeight - verticalPadding - playerHeight
-      : canvasHeight - playerHeight,
+      : canvasHeight - playerHeight
   };
 }
 
@@ -175,6 +175,6 @@ export function clampPlayerPosition(
 
   return {
     x: Math.max(bounds.minX, Math.min(bounds.maxX, player.x)),
-    y: Math.max(bounds.minY, Math.min(bounds.maxY, player.y)),
+    y: Math.max(bounds.minY, Math.min(bounds.maxY, player.y))
   };
 }

@@ -4,7 +4,7 @@ import { DebugFlags, GameState } from '../types';
 // ═══════════════════════════════════════════════════════════════
 // TIME SLOW EFFECTS - Scanlines & Ripple
 // ═══════════════════════════════════════════════════════════════
-export function drawTimeSlowEffects(state: GameState) {
+export function drawTimeSlowEffects(state: GameState): void {
   const { ctx, canvas, activePowerUps, timeSlowRipples, pendingRevengeMeteors, time } = state;
   const lw = state.viewport?.width ?? canvas.width;
   const lh = state.viewport?.height ?? canvas.height;
@@ -138,7 +138,7 @@ export function drawTimeSlowEffects(state: GameState) {
 // ═══════════════════════════════════════════════════════════════
 // CHAIN LIGHTNING RENDERING - MAXIMUM IMPACT! ⚡
 // ═══════════════════════════════════════════════════════════════
-export function drawChainLightning(state: GameState) {
+export function drawChainLightning(state: GameState): void {
   const { ctx, chainLightningArcs, time, canvas } = state;
   if (!chainLightningArcs || chainLightningArcs.length === 0) return;
   
@@ -249,7 +249,7 @@ export function drawChainLightning(state: GameState) {
   ctx.globalAlpha = 1;
 }
 
-export function drawEntities(state: GameState & { debug?: DebugFlags }) {
+export function drawEntities(state: GameState & { debug?: DebugFlags }): void {
   const { ctx, player, crystals, meteors, powerUpPickups, cats } = state;
 
   // Player

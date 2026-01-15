@@ -17,7 +17,7 @@ export const touchState = {
   clientX: 0,
   clientY: 0,
   startClientX: 0,
-  startClientY: 0,
+  startClientY: 0
 };
 
 // Deadzone for touch controls
@@ -47,6 +47,62 @@ export function initInput(state?: GameState): void {
   const canvas = document.getElementById('gameCanvas');
   if (!canvas) return;
 
+  // ═══════════════════════════════════════════════════════════════
+  // MOUSE CONTROLS - Mirror touch joystick behavior
+  // Click + drag on canvas to move
+  // ═══════════════════════════════════════════════════════════════
+  canvas.addEventListener('mousedown', (e: MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    touchActive = true;
+    touchStartX = e.clientX;
+    touchStartY = e.clientY;
+    touchCurrentX = e.clientX;
+    touchCurrentY = e.clientY;
+    touchState.clientX = e.clientX;
+    touchState.clientY = e.clientY;
+    touchState.startClientX = e.clientX;
+    touchState.startClientY = e.clientY;
+    updateTouchKeys();
+
+    // Click to restart when game over
+    if (state && !state.gameRunning) {
+      state._restartRequested = true;
+    }
+  });
+
+  document.addEventListener('mousedown', () => {
+    if (state && !state.gameRunning) {
+      state._restartRequested = true;
+    }
+  });
+
+  document.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!touchActive) return;
+    touchCurrentX = e.clientX;
+    touchCurrentY = e.clientY;
+    touchState.clientX = e.clientX;
+    touchState.clientY = e.clientY;
+    updateTouchKeys();
+  });
+
+  document.addEventListener('mouseup', (e: MouseEvent) => {
+    if (e.button !== 0) return;
+    if (!touchActive) return;
+    touchActive = false;
+    touchState.active = false;
+    touchState.strength = 0;
+    touchState.axisX = 0;
+    touchState.axisY = 0;
+    touchState.clientX = 0;
+    touchState.clientY = 0;
+    // Clear all touch-driven keys
+    keys['arrowleft'] = false;
+    keys['arrowright'] = false;
+    keys['arrowup'] = false;
+    keys['arrowdown'] = false;
+  });
+
   canvas.addEventListener('touchstart', (e: TouchEvent) => {
     e.preventDefault();
     const touch = e.touches[0];
@@ -67,7 +123,7 @@ export function initInput(state?: GameState): void {
     }
   }, { passive: false });
 
-  document.addEventListener('touchstart', (e: TouchEvent) => {
+  document.addEventListener('touchstart', () => {
     if (state && !state.gameRunning) {
       state._restartRequested = true;
     }

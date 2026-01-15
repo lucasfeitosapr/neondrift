@@ -9,6 +9,7 @@ import {
   calculateNewGameSpeed,
   getDifficultyLevel,
   getDifficultyPercent,
+  getMaxDifficultyLevel,
   isNewHighScore,
   formatScore,
   getScoreDisplayText,
@@ -291,5 +292,22 @@ describe('display text functions', () => {
 
   test('getComboText shows multiplier', () => {
     expect(getComboText(3)).toBe('x3');
+  });
+});
+
+describe('getMaxDifficultyLevel', () => {
+  test('calculates max difficulty level correctly', () => {
+    const level = getMaxDifficultyLevel(2, 6, 0.25, 500);
+    expect(level).toBeGreaterThan(0);
+  });
+
+  test('handles default parameters', () => {
+    const level = getMaxDifficultyLevel();
+    expect(level).toBeGreaterThan(0);
+  });
+
+  test('handles edge case with zero increment', () => {
+    const level = getMaxDifficultyLevel(2, 6, 0, 500);
+    expect(level).toBeGreaterThan(0);
   });
 });
