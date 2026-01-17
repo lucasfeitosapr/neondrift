@@ -1,4 +1,5 @@
 import { GameState, PowerUpId } from '../types';
+import { config } from '../config';
 import { removeAtSwap } from '../utils/arrayUtils';
 
 const hudPalette: Record<PowerUpId, string> = {
@@ -9,16 +10,23 @@ const hudPalette: Record<PowerUpId, string> = {
 
 export function drawFloatingTexts(state: GameState & { dtFactor: number }): void {
   const { ctx } = state;
+  const useOptimizedRendering = config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES;
+  
   for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
     const ft = state.floatingTexts[i];
     ft.y += ft.vy * state.dtFactor;
     ft.life -= 0.02 * state.dtFactor;
     ctx.save();
     ctx.globalAlpha = Math.max(0, ft.life);
-    ctx.shadowColor = ft.color;
-    ctx.shadowBlur = 12 * ft.life;
+    
+    // PERFORMANCE: Disable shadowBlur during chain lightning chaos
+    if (!useOptimizedRendering || state.crystals.length < 10) {
+      ctx.shadowColor = ft.color;
+      ctx.shadowBlur = 12 * ft.life;
+    }
+    
     ctx.fillStyle = ft.color;
-    ctx.font = 'bold 14px Orbitron';
+    ctx.font = ft.size ? `bold ${ft.size}px Orbitron` : 'bold 14px Orbitron';
     ctx.textAlign = 'center';
     ctx.fillText(ft.text, ft.x, ft.y);
     ctx.restore();
@@ -30,6 +38,7 @@ export function drawUI(state: GameState & { gameRunning: boolean; score: number;
   const { ctx, canvas, activePowerUps, gameRunning } = state;
   const lw = state.viewport?.width ?? canvas.width;
   const lh = state.viewport?.height ?? canvas.height;
+  const useOptimizedRendering = config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES;
 
   // Active power-up HUD (top-left)
   if (gameRunning) {
@@ -37,8 +46,13 @@ export function drawUI(state: GameState & { gameRunning: boolean; score: number;
     ctx.font = '12px Orbitron';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#7ce7ff';
-    ctx.shadowColor = '#7ce7ff';
-    ctx.shadowBlur = 12;
+    
+    // PERFORMANCE: Disable shadowBlur during chain lightning chaos
+    if (!useOptimizedRendering || state.crystals.length < 10) {
+      ctx.shadowColor = '#7ce7ff';
+      ctx.shadowBlur = 12;
+    }
+    
     ctx.fillText('Power-Ups', 10, 20);
     ctx.shadowBlur = 0;
     activePowerUps.forEach((p, idx) => {

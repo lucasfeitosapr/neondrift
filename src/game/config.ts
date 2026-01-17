@@ -37,7 +37,7 @@ export const config = {
   },
 
   // Particles & pools
-  PARTICLE_POOL_SIZE: 400,
+  PARTICLE_POOL_SIZE: 1400,
   
   particles: {
     // Decay rate: lower = longer lasting (lifetime ≈ 1/decay seconds at 60fps)
@@ -60,6 +60,18 @@ export const config = {
       purple: 1500,
       gold: 3500,
       rainbow: 6500
+    },
+    // ═══════════════════════════════════════════════════════════════
+    // SPAWN WEIGHTS - Controls crystal type rarity
+    // ═══════════════════════════════════════════════════════════════
+    // Higher weight = more common. Each crystal type is added to the pool
+    // this many times. Relative weights determine spawn probability.
+    // Example: cyan=1, purple=4 means purple is 4x more likely than cyan
+    spawnWeights: {
+      cyan: 1,      // Base crystal (common)
+      purple: 4,    // 4x more common than cyan when unlocked
+      gold: 3,      // 3x more common than cyan when unlocked
+      rainbow: 4    // Same rarity as cyan (rare!)
     }
   },
 
@@ -94,7 +106,16 @@ export const config = {
     MAGNET_DIMINISHING_SPAWNS: true,
     
     // Spawn rate multiplier per active magnet stack (0.4 = 40% of base rate per stack)
-    MAGNET_SPAWN_REDUCTION_PER_STACK: 0.4
+    MAGNET_SPAWN_REDUCTION_PER_STACK: 0.4,
+    
+    // ═══════════════════════════════════════════════════════════════
+    // CRYSTAL TYPE FLAGS - Enable/disable specific crystal types
+    // ═══════════════════════════════════════════════════════════════
+    // When false: crystal type will not spawn even if score threshold is met
+    ENABLE_CRYSTAL_CYAN: true,      // Base crystal (always available if enabled)
+    ENABLE_CRYSTAL_PURPLE: true,    // Unlocks at score 1500
+    ENABLE_CRYSTAL_GOLD: true,      // Unlocks at score 3500
+    ENABLE_CRYSTAL_RAINBOW: true    // Unlocks at score 6500
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -200,6 +221,29 @@ export const config = {
   PLAYER_HITBOX_TOP_INSET: 10,
   // Pixels to inset from each side (optional, for tighter hitbox)
   PLAYER_HITBOX_SIDE_INSET: 5,
+
+  // ═══════════════════════════════════════════════════════════════
+  // RAINBOW RAIN EVENT - Wave of rainbow crystals!
+  // ═══════════════════════════════════════════════════════════════
+  rainbowRain: {
+    // Duration in milliseconds (3 seconds default)
+    DURATION_MS: 3000,
+    
+    // How often to spawn a wave of crystals (milliseconds)
+    SPAWN_INTERVAL_MS: 200,
+    
+    // Number of rainbow crystals per wave
+    CRYSTALS_PER_WAVE: 5,
+    
+    // Speed multiplier for rainbow crystals (1.0 = normal speed)
+    CRYSTAL_SPEED_MULTIPLIER: 0.8,
+    
+    // Horizontal spread for crystal spawning (0-1, 1 = full width)
+    HORIZONTAL_SPREAD: 0.8,
+    
+    // PERFORMANCE: Use fewer, larger particles for chain lightning (Option C optimization)
+    CHAIN_LIGHTNING_USE_LARGE_PARTICLES: true
+  },
 
   // ═══════════════════════════════════════════════════════════════
   // PERFORMANCE

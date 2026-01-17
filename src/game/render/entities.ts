@@ -177,39 +177,102 @@ export function drawChainLightning(state: GameState): void {
     const alpha = arc.life;
     const glowIntensity = arc.life * 45; // MORE GLOW!
     
-    // Layer 1: MASSIVE outer glow (blur)
-    ctx.strokeStyle = arc.color;
-    ctx.shadowColor = arc.color;
-    ctx.shadowBlur = glowIntensity * 1.5;
-    ctx.lineWidth = 12 * arc.life;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = alpha * 0.3;
+    // PERFORMANCE OPTIMIZATION: Use gradient strokes instead of shadowBlur
+    const useGradientOptimization = config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES;
     
-    ctx.beginPath();
-    ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
-    for (let i = 1; i < arc.segments.length; i++) {
-      ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
+    if (useGradientOptimization) {
+      // OPTIMIZED: Pre-baked glow with gradient strokes (no shadowBlur!)
+      
+      // Layer 1: MASSIVE outer glow (gradient stroke)
+      ctx.strokeStyle = arc.color;
+      ctx.lineWidth = 12 * arc.life;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = alpha * 0.3;
+      ctx.shadowBlur = 0; // DISABLED for performance!
+      
+      // Create gradient along the path for glow effect
+      const gradient1 = ctx.createLinearGradient(
+        arc.segments[0].x, arc.segments[0].y,
+        arc.segments[arc.segments.length - 1].x, arc.segments[arc.segments.length - 1].y
+      );
+      gradient1.addColorStop(0, `${arc.color}00`);
+      gradient1.addColorStop(0.1, `${arc.color}33`);
+      gradient1.addColorStop(0.5, `${arc.color}66`);
+      gradient1.addColorStop(0.9, `${arc.color}33`);
+      gradient1.addColorStop(1, `${arc.color}00`);
+      ctx.strokeStyle = gradient1;
+      
+      ctx.beginPath();
+      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
+      for (let i = 1; i < arc.segments.length; i++) {
+        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
+      }
+      ctx.stroke();
+      
+      // Layer 2: Mid glow (solid stroke)
+      ctx.strokeStyle = arc.color;
+      ctx.lineWidth = 6 * arc.life;
+      ctx.globalAlpha = alpha * 0.6;
+      ctx.shadowBlur = 0; // DISABLED for performance!
+      
+      ctx.beginPath();
+      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
+      for (let i = 1; i < arc.segments.length; i++) {
+        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
+      }
+      ctx.stroke();
+      
+      // Layer 3: Core (white-hot)
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3 * arc.life;
+      ctx.globalAlpha = alpha;
+      ctx.shadowBlur = 0; // DISABLED for performance!
+      
+      ctx.beginPath();
+      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
+      for (let i = 1; i < arc.segments.length; i++) {
+        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
+      }
+      ctx.stroke();
+      
+    } else {
+      // ORIGINAL: Expensive shadowBlur approach
+      ctx.strokeStyle = arc.color;
+      ctx.shadowColor = arc.color;
+      ctx.shadowBlur = glowIntensity * 1.5;
+      ctx.lineWidth = 12 * arc.life;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = alpha * 0.3;
+      
+      ctx.beginPath();
+      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
+      for (let i = 1; i < arc.segments.length; i++) {
+        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
+      }
+      ctx.stroke();
+      
+      // Layer 2: Mid glow (colored)
+      ctx.shadowBlur = glowIntensity;
+      ctx.lineWidth = 6 * arc.life;
+      ctx.globalAlpha = alpha * 0.6;
+      ctx.stroke();
+      
+      // Layer 3: Core (white-hot)
+      ctx.strokeStyle = '#ffffff';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = glowIntensity * 0.6;
+      ctx.lineWidth = 3 * arc.life;
+      ctx.globalAlpha = alpha;
+      ctx.stroke();
     }
-    ctx.stroke();
-    
-    // Layer 2: Mid glow (colored)
-    ctx.shadowBlur = glowIntensity;
-    ctx.lineWidth = 6 * arc.life;
-    ctx.globalAlpha = alpha * 0.6;
-    ctx.stroke();
-    
-    // Layer 3: Core (white-hot)
-    ctx.strokeStyle = '#ffffff';
-    ctx.shadowColor = '#ffffff';
-    ctx.shadowBlur = glowIntensity * 0.6;
-    ctx.lineWidth = 3 * arc.life;
-    ctx.globalAlpha = alpha;
-    ctx.stroke();
     
     // ⚡ BRANCHING FORKS - small lightning offshoots
     ctx.lineWidth = 1.5 * arc.life;
     ctx.globalAlpha = alpha * 0.7;
+    ctx.shadowBlur = 0; // DISABLED for performance!
+    
     for (let i = 1; i < arc.segments.length - 1; i += 2) {
       const seg = arc.segments[i];
       // Random fork direction
@@ -230,7 +293,7 @@ export function drawChainLightning(state: GameState): void {
     
     // ⚡ SPARKS along the path
     ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = useGradientOptimization ? 0 : 12; // DISABLED for performance!
     ctx.globalAlpha = alpha * 0.9;
     
     for (let i = 0; i < arc.segments.length; i++) {
@@ -248,13 +311,14 @@ export function drawChainLightning(state: GameState): void {
     const endPt = arc.segments[arc.segments.length - 1];
     ctx.fillStyle = arc.color;
     ctx.shadowColor = arc.color;
-    ctx.shadowBlur = 25 * arc.life;
+    ctx.shadowBlur = useGradientOptimization ? 0 : 25 * arc.life; // DISABLED for performance!
     ctx.globalAlpha = alpha;
     ctx.beginPath();
     ctx.arc(endPt.x, endPt.y, 8 * arc.life, 0, Math.PI * 2);
     ctx.fill();
     
     ctx.fillStyle = '#ffffff';
+    ctx.shadowBlur = 0; // DISABLED for performance!
     ctx.beginPath();
     ctx.arc(endPt.x, endPt.y, 4 * arc.life, 0, Math.PI * 2);
     ctx.fill();
@@ -310,12 +374,20 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }): void {
 
   // Crystals
   const gameSpeedScale = state.dtFactor * state.modifiers.gameSpeed;
+  const useOptimizedRendering = config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES;
+  
   crystals.forEach((crystal) => {
     crystal.rotation += 0.1 * gameSpeedScale;
     ctx.save(); ctx.translate(crystal.x + crystal.width/2, crystal.y + crystal.height/2); ctx.rotate(crystal.rotation);
     let mainColor = crystal.type.colorHex || '#00ffff'; let shadowColor = mainColor;
     if (crystal.type.color === 'rainbow') { const hue = (state.time * 120 + crystal.hueOffset) % 360; mainColor = `hsl(${hue}, 100%, 60%)`; shadowColor = mainColor; }
-    ctx.shadowColor = shadowColor; ctx.shadowBlur = 20 * crystal.glow;
+    
+    // PERFORMANCE: Disable shadowBlur during chain lightning chaos
+    if (!useOptimizedRendering || state.crystals.length < 15) {
+      ctx.shadowColor = shadowColor; 
+      ctx.shadowBlur = 20 * crystal.glow;
+    }
+    
     ctx.fillStyle = mainColor; ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(8, 0); ctx.lineTo(0, 12); ctx.lineTo(-8, 0); ctx.closePath(); ctx.fill();
     let innerColor = '#ffffff'; if (crystal.type.color === 'rainbow') { const hueInner = (state.time * 120 + crystal.hueOffset + 45) % 360; innerColor = `hsl(${hueInner}, 100%, 70%)`; }
     ctx.fillStyle = innerColor; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(4, 0); ctx.lineTo(0, 6); ctx.lineTo(-4, 0); ctx.closePath(); ctx.fill();
@@ -345,8 +417,13 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }): void {
 
     ctx.save();
     ctx.translate(cx, cy + bob);
-    ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 16;
+    
+    // PERFORMANCE: Disable shadowBlur during chain lightning chaos
+    if (!useOptimizedRendering || state.crystals.length < 15) {
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 16;
+    }
+    
     ctx.fillStyle = baseColor;
 
     // Face
@@ -924,7 +1001,14 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }): void {
   meteors.forEach((meteor) => {
     meteor.rotation += 0.05 * gameSpeedScale; meteor.pulse += 0.1 * gameSpeedScale;
     ctx.save(); ctx.translate(meteor.x + meteor.width/2, meteor.y + meteor.height/2); ctx.rotate(meteor.rotation);
-    const glowIntensity = Math.sin(meteor.pulse) * 0.3 + 0.7; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 25 * glowIntensity;
+    const glowIntensity = Math.sin(meteor.pulse) * 0.3 + 0.7; 
+    
+    // PERFORMANCE: Disable shadowBlur during chain lightning chaos
+    if (!useOptimizedRendering || state.crystals.length < 15) {
+      ctx.shadowColor = '#ff00ff'; 
+      ctx.shadowBlur = 25 * glowIntensity;
+    }
+    
     ctx.fillStyle = '#ff00ff'; ctx.fillRect(-15, -15, 30, 30);
     ctx.fillStyle = '#ff6666'; ctx.fillRect(-8, -8, 16, 16);
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(10, 10); ctx.moveTo(10, -10); ctx.lineTo(-10, 10); ctx.stroke();
@@ -942,4 +1026,60 @@ export function drawEntities(state: GameState & { debug?: DebugFlags }): void {
       ctx.restore();
     }
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RAINBOW RAIN EFFECT - Colorful overlay during rainbow rain event
+// ═══════════════════════════════════════════════════════════════
+export function drawRainbowRainEffect(state: GameState): void {
+  if (!state.activeRainbowRain) return;
+
+  const { ctx, canvas, time } = state;
+  const lw = state.viewport?.width ?? canvas.width;
+  const lh = state.viewport?.height ?? canvas.height;
+  
+  ctx.save();
+  
+  // Calculate progress through the event (0-1)
+  const now = performance.now();
+  const progress = Math.max(0, Math.min(1, (now - state.activeRainbowRain.startedAt) / config.rainbowRain.DURATION_MS));
+  
+  // Fade in and out effect
+  let alpha = 0.15;
+  if (progress < 0.1) {
+    alpha = progress * 1.5; // Fade in
+  } else if (progress > 0.9) {
+    alpha = (1 - progress) * 1.5; // Fade out
+  }
+  
+  // Create animated rainbow gradient overlay
+  const gradient = ctx.createLinearGradient(0, 0, lw, 0);
+  const hueOffset = (time * 0.05) % 360;
+  
+  // Rainbow colors with shifting hue
+  gradient.addColorStop(0, `hsla(${(hueOffset + 0) % 360}, 100%, 50%, ${alpha})`);
+  gradient.addColorStop(0.17, `hsla(${(hueOffset + 60) % 360}, 100%, 50%, ${alpha})`);
+  gradient.addColorStop(0.33, `hsla(${(hueOffset + 120) % 360}, 100%, 50%, ${alpha})`);
+  gradient.addColorStop(0.5, `hsla(${(hueOffset + 180) % 360}, 100%, 50%, ${alpha})`);
+  gradient.addColorStop(0.67, `hsla(${(hueOffset + 240) % 360}, 100%, 50%, ${alpha})`);
+  gradient.addColorStop(0.83, `hsla(${(hueOffset + 300) % 360}, 100%, 50%, ${alpha})`);
+  gradient.addColorStop(1, `hsla(${(hueOffset + 360) % 360}, 100%, 50%, ${alpha})`);
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, lw, lh);
+  
+  // Add some sparkle effects
+  const sparkleCount = 5;
+  for (let i = 0; i < sparkleCount; i++) {
+    const x = ((Math.sin(time * 0.001 + i * 1.2) + 1) * 0.5) * lw;
+    const y = ((Math.cos(time * 0.0015 + i * 0.8) + 1) * 0.5) * lh;
+    const sparkleAlpha = (Math.sin(time * 0.003 + i) + 1) * 0.5 * alpha * 2;
+    
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${(hueOffset + i * 72) % 360}, 100%, 70%, ${sparkleAlpha})`;
+    ctx.fill();
+  }
+  
+  ctx.restore();
 }

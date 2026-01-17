@@ -45,7 +45,9 @@ export default [
       'prefer-const': 'error',
       'no-var': 'error',
       'semi': ['error', 'always'],
-      'comma-dangle': ['error', 'never']
+      'comma-dangle': ['error', 'never'],
+      'indent': ['error', 'tab'],
+      'no-tabs': 'off'
     }
   },
   {

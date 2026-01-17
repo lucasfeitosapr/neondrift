@@ -15,96 +15,211 @@
       <div class="left-panel">
         <div class="debug-panel visible" id="debugPanel">
       <h3>⚡ DEBUG</h3>
-      <div class="debug-row">
-        <span class="label">FPS</span>
-        <span class="value" id="debugFps">60</span>
+      <div class="debug-at-a-glance">
+        <div class="debug-kpi">
+          <div class="debug-kpi__label">FPS</div>
+          <div class="debug-kpi__value" id="debugFps">60</div>
+        </div>
+        <div class="debug-kpi">
+          <div class="debug-kpi__label">dt</div>
+          <div class="debug-kpi__value" id="debugDt">1.00</div>
+        </div>
+        <div class="debug-kpi">
+          <div class="debug-kpi__label">Speed</div>
+          <div class="debug-kpi__value" id="debugSpeed">1.00</div>
+        </div>
+        <div class="debug-kpi debug-kpi--wide">
+          <div class="debug-kpi__label">Difficulty</div>
+          <div class="debug-kpi__value debug-value--warning" id="debugDifficulty">Lv.1 (0%)</div>
+          <div class="difficulty-bar">
+            <div class="difficulty-bar__fill" id="difficultyFill"></div>
+          </div>
+        </div>
       </div>
-      <div class="debug-row">
-        <span class="label">dtFactor</span>
-        <span class="value" id="debugDt">1.00</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Particles</span>
-        <span class="value" id="debugParticles">0</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Speed</span>
-        <span class="value" id="debugSpeed">1.00</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Difficulty</span>
-        <span class="value debug-value--warning" id="debugDifficulty">Lv.1 (0%)</span>
-      </div>
-      <div class="difficulty-bar">
-        <div class="difficulty-bar__fill" id="difficultyFill"></div>
-      </div>
-      <div class="debug-row">
-        <span class="label">Crystals</span>
-        <span class="value" id="debugCrystals">0</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Meteors</span>
-        <span class="value" id="debugMeteors">0</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Pickups</span>
-        <span class="value" id="debugPickups">0</span>
-      </div>
-      <div class="debug-row debug-row--section">
-        <span class="label">Magnet Stacks</span>
-        <span class="value debug-value--danger" id="debugMagnetStacks">0</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Magnet Rate</span>
-        <span class="value debug-value--danger" id="debugMagnetRate">100%</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Magnet Time</span>
-        <span class="value debug-value--danger" id="debugMagnetTime">-</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Spawn Rate</span>
-        <span class="value" id="debugSpawnRate">0.05</span>
-      </div>
-      <div class="debug-row">
-        <span class="label">Player Pos</span>
-        <span class="value" id="debugPlayerPos">0, 0</span>
-      </div>
+
+      <!-- Performance Stats -->
+      <details class="debug-group">
+        <summary class="debug-group__summary">Performance</summary>
+        <div class="debug-group__body">
+          <div class="debug-stats-grid">
+            <div class="debug-row">
+              <span class="label">Particles</span>
+              <span class="value" id="debugParticles">0</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Game State -->
+      <details class="debug-group" open>
+        <summary class="debug-group__summary">Game State</summary>
+        <div class="debug-group__body">
+          <div class="debug-stats-grid">
+            <div class="debug-row">
+              <span class="label">Crystals</span>
+              <span class="value" id="debugCrystals">0</span>
+            </div>
+            <div class="debug-row">
+              <span class="label">Meteors</span>
+              <span class="value" id="debugMeteors">0</span>
+            </div>
+            <div class="debug-row">
+              <span class="label">Pickups</span>
+              <span class="value" id="debugPickups">0</span>
+            </div>
+            <div class="debug-row">
+              <span class="label">Spawn Rate</span>
+              <span class="value" id="debugSpawnRate">0.05</span>
+            </div>
+          </div>
+          <div class="debug-row">
+            <span class="label">Player Pos</span>
+            <span class="value" id="debugPlayerPos">0, 0</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- Visual & Gameplay Toggles -->
+      <details class="debug-group" open>
+        <summary class="debug-group__summary">Toggles</summary>
+        <div class="debug-group__body">
+          <div class="debug-toggles debug-toggles--grid">
+            <div class="debug-toggle" id="toggleGrid">
+              <span>Grid</span>
+              <span class="key">G</span>
+              <span class="status on" id="statusGrid">ON</span>
+            </div>
+            <div class="debug-toggle" id="toggleInvincibility">
+              <span>Invincible</span>
+              <span class="key">I</span>
+              <span class="status off" id="statusInvincibility">OFF</span>
+            </div>
+            <div class="debug-toggle" id="toggleBoxes">
+              <span>Boxes</span>
+              <span class="key">B</span>
+              <span class="status off" id="statusBoxes">OFF</span>
+            </div>
+            <div class="debug-toggle" id="toggleMeteors">
+              <span>Meteors</span>
+              <span class="key">M</span>
+              <span class="status on" id="statusMeteors">ON</span>
+            </div>
+            <div class="debug-toggle" id="toggleParticles">
+              <span>Particles</span>
+              <span class="key">⇧P</span>
+              <span class="status on" id="statusParticles">ON</span>
+            </div>
+            <div class="debug-toggle" id="toggleForceMaxDifficulty">
+              <span>Force Max</span>
+              <span class="key">F</span>
+              <span class="status off" id="statusForceMaxDifficulty">OFF</span>
+            </div>
+            <div class="debug-toggle" id="toggleRainbowRain">
+              <span>Rainbow Rain</span>
+              <span class="key">R</span>
+              <span class="status off" id="statusRainbowRain">OFF</span>
+            </div>
+            <div class="debug-toggle" id="toggleChainLightningParticles">
+              <span>No Blur Mode</span>
+              <span class="key">L</span>
+              <span class="status on" id="statusChainLightningParticles">ON</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Magnet Power-Up -->
+      <details class="debug-group">
+        <summary class="debug-group__summary">Magnet</summary>
+        <div class="debug-group__body">
+          <div class="debug-stats-grid">
+            <div class="debug-row">
+              <span class="label">Stacks</span>
+              <span class="value debug-value--danger" id="debugMagnetStacks">0</span>
+            </div>
+            <div class="debug-row">
+              <span class="label">Rate</span>
+              <span class="value debug-value--danger" id="debugMagnetRate">100%</span>
+            </div>
+            <div class="debug-row">
+              <span class="label">Time</span>
+              <span class="value debug-value--danger" id="debugMagnetTime">-</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Crystal Flags -->
+      <details class="debug-group">
+        <summary class="debug-group__summary">Crystal Flags</summary>
+        <div class="debug-group__body">
+          <div class="debug-toggles debug-toggles--grid">
+            <div class="debug-toggle" id="toggleCrystalCyan">
+              <span>Cyan</span>
+              <span class="key">1</span>
+              <span class="status on" id="statusCrystalCyan">ON</span>
+            </div>
+            <div class="debug-toggle" id="toggleCrystalPurple">
+              <span>Purple</span>
+              <span class="key">2</span>
+              <span class="status on" id="statusCrystalPurple">ON</span>
+            </div>
+            <div class="debug-toggle" id="toggleCrystalGold">
+              <span>Gold</span>
+              <span class="key">3</span>
+              <span class="status on" id="statusCrystalGold">ON</span>
+            </div>
+            <div class="debug-toggle" id="toggleCrystalRainbow">
+              <span>Rainbow</span>
+              <span class="key">4</span>
+              <span class="status on" id="statusCrystalRainbow">ON</span>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Spawn Weights -->
+      <details class="debug-group">
+        <summary class="debug-group__summary">Spawn Weights</summary>
+        <div class="debug-group__body">
+          <div class="debug-weights debug-weights--grid">
+            <div class="debug-weight-row">
+              <span class="label">Cyan</span>
+              <div class="debug-weight-controls">
+                <button class="debug-weight-btn" id="weightCyanDec">-</button>
+                <span class="value" id="weightCyan">1</span>
+                <button class="debug-weight-btn" id="weightCyanInc">+</button>
+              </div>
+            </div>
+            <div class="debug-weight-row">
+              <span class="label">Purple</span>
+              <div class="debug-weight-controls">
+                <button class="debug-weight-btn" id="weightPurpleDec">-</button>
+                <span class="value" id="weightPurple">4</span>
+                <button class="debug-weight-btn" id="weightPurpleInc">+</button>
+              </div>
+            </div>
+            <div class="debug-weight-row">
+              <span class="label">Gold</span>
+              <div class="debug-weight-controls">
+                <button class="debug-weight-btn" id="weightGoldDec">-</button>
+                <span class="value" id="weightGold">3</span>
+                <button class="debug-weight-btn" id="weightGoldInc">+</button>
+              </div>
+            </div>
+            <div class="debug-weight-row">
+              <span class="label">Rainbow</span>
+              <div class="debug-weight-controls">
+                <button class="debug-weight-btn" id="weightRainbowDec">-</button>
+                <span class="value" id="weightRainbow">1</span>
+                <button class="debug-weight-btn" id="weightRainbowInc">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
       
-      <div class="debug-toggles">
-        <div class="debug-toggle" id="toggleGrid">
-          <span>Grid</span>
-          <span class="key">G</span>
-          <span class="status on" id="statusGrid">ON</span>
-        </div>
-        <div class="debug-toggle" id="toggleBoxes">
-          <span>Boxes</span>
-          <span class="key">B</span>
-          <span class="status off" id="statusBoxes">OFF</span>
-        </div>
-        <div class="debug-toggle" id="toggleParticles">
-          <span>Particles</span>
-          <span class="key">Shift+P</span>
-          <span class="status on" id="statusParticles">ON</span>
-        </div>
-        <div class="debug-toggle" id="toggleInvincibility">
-          <span>Invincible</span>
-          <span class="key">I</span>
-          <span class="status off" id="statusInvincibility">OFF</span>
-        </div>
-        <div class="debug-toggle" id="toggleMeteors">
-          <span>Meteors</span>
-          <span class="key">M</span>
-          <span class="status on" id="statusMeteors">ON</span>
-        </div>
-        <div class="debug-toggle" id="toggleForceMaxDifficulty">
-          <span>Force Max</span>
-          <span class="key">F</span>
-          <span class="status off" id="statusForceMaxDifficulty">OFF</span>
-        </div>
-      </div>
-      
-        <div class="debug-hint">Press <strong>`</strong> to toggle panel</div>
+      <div class="debug-hint">Press <strong>`</strong> to toggle panel</div>
       </div>
     </div>
 

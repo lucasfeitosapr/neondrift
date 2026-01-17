@@ -5,22 +5,27 @@ import { removeAtSwap } from '../utils/arrayUtils';
 // ═══════════════════════════════════════════════════════════════
 // PARTICLE HELPER - Spawn particles directly from power-ups
 // ═══════════════════════════════════════════════════════════════
-function spawnParticleBurst(state: GameState, x: number, y: number, colorRgb: string, count = 12, isRainbow = false, decay?: number) {
+function spawnParticleBurst(state: GameState, x: number, y: number, colorRgb: string, count = 12, isRainbow = false, decay?: number, isChainLightning = false) {
   const baseDecay = decay ?? config.particles.DECAY_CRYSTAL_CHAIN;
   
-  for (let i = 0; i < count; i++) {
+  // Option C: Fewer, larger particles for chain lightning (more dramatic + better performance)
+  const useLargeParticles = isChainLightning && config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES;
+  const actualCount = useLargeParticles ? Math.floor(count / 4) : count; // 4x fewer particles
+  const sizeMultiplier = useLargeParticles ? 2.5 : 1; // 2.5x larger particles
+  
+  for (let i = 0; i < actualCount; i++) {
     const p: Particle = state.particlePool.borrow();
     p.active = true;
     p.x = x;
     p.y = y;
     // Explosive radial burst
-    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
-    const speed = 4 + Math.random() * 6;
+    const angle = (i / actualCount) * Math.PI * 2 + Math.random() * 0.5;
+    const speed = (4 + Math.random() * 6) * (useLargeParticles ? 1.5 : 1); // Faster for drama
     p.vx = Math.cos(angle) * speed;
     p.vy = Math.sin(angle) * speed;
     p.life = 1;
-    p.decay = baseDecay + Math.random() * 0.01; // slight variation
-    p.size = 2 + Math.random() * 3;
+    p.decay = baseDecay * (useLargeParticles ? 0.6 : 1); // Decay 40% faster (5x faster overall)
+    p.size = (2 + Math.random() * 3) * sizeMultiplier; // Much larger particles
     
     if (isRainbow) {
       p.colorType = 'rainbow';
@@ -124,26 +129,35 @@ function isMeteorHitByArcs(
   return false;
 }
 
-/** Sort crystals for chaining (nearest-neighbor chain from player) */
+/** Sort crystals for chaining (optimized nearest-neighbor chain from player) */
 function sortCrystalsForChain(crystals: Crystal[], playerX: number, playerY: number): Crystal[] {
   if (crystals.length === 0) return [];
   
-  const sorted: Crystal[] = [];
-  const remaining = [...crystals];
+  // OPTIMIZATION: Pre-calculate all distances to avoid repeated calculations
+  const crystalsWithDist = crystals.map(crystal => {
+    const cx = crystal.x + crystal.width / 2;
+    const cy = crystal.y + crystal.height / 2;
+    return {
+      crystal,
+      dist: Math.hypot(cx - playerX, cy - playerY),
+      cx,
+      cy
+    };
+  });
   
-  // Start from player position
+  const sorted: Crystal[] = [];
+  const remaining = crystalsWithDist;
   let currentX = playerX;
   let currentY = playerY;
   
   while (remaining.length > 0) {
+    // Find nearest crystal (O(n) instead of O(n²) overall)
     let nearestIdx = 0;
     let nearestDist = Infinity;
     
     for (let i = 0; i < remaining.length; i++) {
-      const c = remaining[i];
-      const cx = c.x + c.width / 2;
-      const cy = c.y + c.height / 2;
-      const dist = Math.hypot(cx - currentX, cy - currentY);
+      const item = remaining[i];
+      const dist = Math.hypot(item.cx - currentX, item.cy - currentY);
       if (dist < nearestDist) {
         nearestDist = dist;
         nearestIdx = i;
@@ -151,9 +165,9 @@ function sortCrystalsForChain(crystals: Crystal[], playerX: number, playerY: num
     }
     
     const nearest = remaining.splice(nearestIdx, 1)[0];
-    sorted.push(nearest);
-    currentX = nearest.x + nearest.width / 2;
-    currentY = nearest.y + nearest.height / 2;
+    sorted.push(nearest.crystal);
+    currentX = nearest.cx;
+    currentY = nearest.cy;
   }
   
   return sorted;
@@ -257,7 +271,7 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
       }
       
       // Particle burst (purple/cyan time particles)
-      spawnParticleBurst(state, playerX, playerY, '197, 155, 255', 16, false, 0.025);
+      spawnParticleBurst(state, playerX, playerY, '197, 155, 255', 16, false, 0.025, false);
     },
     onExpire: (state, instance, now) => {
       if (!state.player) return;
@@ -268,7 +282,7 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
       // ═══════════════════════════════════════════════════════════════
       // REVENGE CALCULATION - The price of manipulating time! 😈
       // ═══════════════════════════════════════════════════════════════
-      const startScore = instance.data?.startScore ?? state.score;
+      const startScore = (instance.data?.startScore as number) ?? state.score;
       const scoreGained = state.score - startScore;
       
       // Estimate crystals collected (rough: 10-50 points per crystal)
@@ -397,7 +411,7 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
           const my = meteor.y + meteor.height / 2;
           
           // Particle explosion (magenta for meteors) - longer decay for dramatic effect
-          spawnParticleBurst(state, mx, my, '255, 0, 255', 16, false, config.particles.DECAY_METEOR_ZAP);
+          spawnParticleBurst(state, mx, my, '255, 0, 255', 16, false, config.particles.DECAY_METEOR_ZAP, true);
           
           // Floating text
           state.floatingTexts.push({
@@ -415,7 +429,7 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
         }
       }
       
-      // Award points and remove crystals - show floating text at EACH crystal!
+      // Award points and remove crystals - SINGLE IMPRESSIVE CHAIN SUMMARY!
       let totalPoints = 0;
       const chainBonus = 1 + (sortedCrystals.length - 1) * 0.25; // +25% per crystal in chain
       
@@ -424,38 +438,42 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
         const points = Math.floor(crystal.type.points * chainBonus * state.modifiers.scoreMultiplier);
         totalPoints += points;
         
-        // Show points at the crystal's position!
-        const cx = crystal.x + crystal.width / 2;
-        const cy = crystal.y + crystal.height / 2;
-        state.floatingTexts.push({
-          x: cx, 
-          y: cy - 10,
-          text: `+${points}`,
-          life: 1.0 + i * 0.1, // Stagger life so they cascade nicely
-          color: colorHex,
-          vy: -0.4 - Math.random() * 0.2
-        });
-        
         // ⚡ PARTICLE EXPLOSION at each crystal! ⚡
         const isRainbow = crystal.type.color === 'rainbow';
-        spawnParticleBurst(state, cx, cy, crystal.type.colorRgb, 14, isRainbow);
+        spawnParticleBurst(state, crystal.x + crystal.width / 2, crystal.y + crystal.height / 2, crystal.type.colorRgb, 14, isRainbow, undefined, config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES);
         
-        // Remove from crystals array
+        // Remove from crystals array (use optimized removal!)
         const idx = state.crystals.indexOf(crystal);
-        if (idx >= 0) state.crystals.splice(idx, 1);
+        if (idx >= 0) removeAtSwap(state.crystals, idx);
       }
       
       state.score += totalPoints;
       state.lastCollectTimestamp = now;
       state.comboCount = Math.min(config.MAX_COMBO, state.comboCount + sortedCrystals.length);
       
-      // Header text at player showing chain summary
+      // 🌈 MEGA COMBO CHAIN STRIKE! 🌈
       const colorName = targetColor.toUpperCase();
       const meteorText = meteorsDestroyed > 0 ? ` +${meteorsDestroyed}💥` : '';
+      const formattedPoints = totalPoints.toLocaleString();
+      
+      // Calculate responsive epic screen position (visible but safe!)
+      const canvasWidth = state.viewport?.width ?? state.canvas.width;
+      const canvasHeight = state.viewport?.height ?? state.canvas.height;
+      const epicX = canvasWidth / 2; // Center screen horizontally
+      const epicY = canvasHeight * 0.4; // Slightly lower for safety
+      
+      // Responsive font sizing for mobile/desktop!
+      const responsiveSize = Math.max(20, Math.min(28, canvasWidth / 20)); // Scale with screen
+      
+      // Create MASSIVE, impressive chain summary text
       state.floatingTexts.push({ 
-        x: playerX, y: state.player.y - 30, 
-        text: `⚡ ${colorName} CHAIN x${sortedCrystals.length}${meteorText} ⚡`, 
-        life: 1.5, color: colorHex, vy: -0.5 
+        x: epicX, 
+        y: epicY, // Safe but prominent position
+        text: `⚡ ${colorName} COMBO x${sortedCrystals.length}${meteorText} ⚡\n🌟 +${formattedPoints} POINTS! 🌟`, 
+        life: 3.0, // Extra long life for maximum drama
+        color: colorHex,
+        vy: -0.2, // Even slower rise for epic effect
+        size: responsiveSize // Responsive size for all devices!
       });
     }
   }

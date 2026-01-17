@@ -129,6 +129,161 @@ describe('createCrystalEntity', () => {
     expect(crystal.x).toBeGreaterThanOrEqual(0);
     expect(crystal.x).toBeLessThanOrEqual(size - size); // Should be 0
   });
+
+  test('respects ENABLE_CRYSTAL_PURPLE feature flag', () => {
+    const originalValue = config.features.ENABLE_CRYSTAL_PURPLE;
+    const highScore = config.crystal.thresholds.purple + 1000;
+    
+    // Test with flag enabled (default)
+    config.features.ENABLE_CRYSTAL_PURPLE = true;
+    const crystalsEnabled: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const crystal = createCrystalEntity(360, 2, highScore);
+      crystalsEnabled.push(crystal.type.color);
+    }
+    expect(crystalsEnabled.some(c => c === 'purple')).toBe(true);
+    
+    // Test with flag disabled
+    config.features.ENABLE_CRYSTAL_PURPLE = false;
+    const crystalsDisabled: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const crystal = createCrystalEntity(360, 2, highScore);
+      crystalsDisabled.push(crystal.type.color);
+    }
+    expect(crystalsDisabled.some(c => c === 'purple')).toBe(false);
+    
+    // Restore original value
+    config.features.ENABLE_CRYSTAL_PURPLE = originalValue;
+  });
+
+  test('respects ENABLE_CRYSTAL_GOLD feature flag', () => {
+    const originalValue = config.features.ENABLE_CRYSTAL_GOLD;
+    const highScore = config.crystal.thresholds.gold + 1000;
+    
+    // Test with flag enabled (default)
+    config.features.ENABLE_CRYSTAL_GOLD = true;
+    const crystalsEnabled: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const crystal = createCrystalEntity(360, 2, highScore);
+      crystalsEnabled.push(crystal.type.color);
+    }
+    expect(crystalsEnabled.some(c => c === 'gold')).toBe(true);
+    
+    // Test with flag disabled
+    config.features.ENABLE_CRYSTAL_GOLD = false;
+    const crystalsDisabled: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const crystal = createCrystalEntity(360, 2, highScore);
+      crystalsDisabled.push(crystal.type.color);
+    }
+    expect(crystalsDisabled.some(c => c === 'gold')).toBe(false);
+    
+    // Restore original value
+    config.features.ENABLE_CRYSTAL_GOLD = originalValue;
+  });
+
+  test('respects ENABLE_CRYSTAL_RAINBOW feature flag', () => {
+    const originalValue = config.features.ENABLE_CRYSTAL_RAINBOW;
+    const highScore = config.crystal.thresholds.rainbow + 1000;
+    
+    // Test with flag enabled (default)
+    config.features.ENABLE_CRYSTAL_RAINBOW = true;
+    const crystalsEnabled: string[] = [];
+    for (let i = 0; i < 200; i++) { // Rainbow is rare, need more samples
+      const crystal = createCrystalEntity(360, 2, highScore);
+      crystalsEnabled.push(crystal.type.color);
+    }
+    expect(crystalsEnabled.some(c => c === 'rainbow')).toBe(true);
+    
+    // Test with flag disabled
+    config.features.ENABLE_CRYSTAL_RAINBOW = false;
+    const crystalsDisabled: string[] = [];
+    for (let i = 0; i < 200; i++) {
+      const crystal = createCrystalEntity(360, 2, highScore);
+      crystalsDisabled.push(crystal.type.color);
+    }
+    expect(crystalsDisabled.some(c => c === 'rainbow')).toBe(false);
+    
+    // Restore original value
+    config.features.ENABLE_CRYSTAL_RAINBOW = originalValue;
+  });
+
+  test('falls back to cyan when all crystal types are disabled', () => {
+    const originalCyan = config.features.ENABLE_CRYSTAL_CYAN;
+    const originalPurple = config.features.ENABLE_CRYSTAL_PURPLE;
+    const originalGold = config.features.ENABLE_CRYSTAL_GOLD;
+    const originalRainbow = config.features.ENABLE_CRYSTAL_RAINBOW;
+    
+    // Disable all crystal types
+    config.features.ENABLE_CRYSTAL_CYAN = false;
+    config.features.ENABLE_CRYSTAL_PURPLE = false;
+    config.features.ENABLE_CRYSTAL_GOLD = false;
+    config.features.ENABLE_CRYSTAL_RAINBOW = false;
+    
+    const crystal = createCrystalEntity(360, 2, 1000000);
+    // Should fallback to cyan even though it's disabled
+    expect(crystal.type.color).toBe('cyan');
+    
+    // Restore original values
+    config.features.ENABLE_CRYSTAL_CYAN = originalCyan;
+    config.features.ENABLE_CRYSTAL_PURPLE = originalPurple;
+    config.features.ENABLE_CRYSTAL_GOLD = originalGold;
+    config.features.ENABLE_CRYSTAL_RAINBOW = originalRainbow;
+  });
+
+  test('respects spawn weights configuration', () => {
+    const highScore = config.crystal.thresholds.rainbow + 1000;
+    const originalWeights = { ...config.crystal.spawnWeights };
+    
+    // Set custom weights: cyan=1, purple=2, gold=3, rainbow=1
+    // Expected distribution: cyan=1/7, purple=2/7, gold=3/7, rainbow=1/7
+    config.crystal.spawnWeights.cyan = 1;
+    config.crystal.spawnWeights.purple = 2;
+    config.crystal.spawnWeights.gold = 3;
+    config.crystal.spawnWeights.rainbow = 1;
+    
+    const counts: Record<string, number> = { cyan: 0, purple: 0, gold: 0, rainbow: 0 };
+    const samples = 1000;
+    
+    for (let i = 0; i < samples; i++) {
+      const crystal = createCrystalEntity(360, 2, highScore);
+      counts[crystal.type.color]++;
+    }
+    
+    // Verify all types appear (with some tolerance for randomness)
+    expect(counts.cyan).toBeGreaterThan(0);
+    expect(counts.purple).toBeGreaterThan(0);
+    expect(counts.gold).toBeGreaterThan(0);
+    expect(counts.rainbow).toBeGreaterThan(0);
+    
+    // Verify relative weights: gold should be most common, purple second, cyan and rainbow least
+    expect(counts.gold).toBeGreaterThan(counts.purple);
+    expect(counts.purple).toBeGreaterThan(counts.cyan);
+    expect(counts.purple).toBeGreaterThan(counts.rainbow);
+    
+    // Restore original weights
+    config.crystal.spawnWeights = originalWeights;
+  });
+
+  test('spawn weights of 0 prevent crystal type from spawning', () => {
+    const highScore = config.crystal.thresholds.gold + 1000;
+    const originalGoldWeight = config.crystal.spawnWeights.gold;
+    
+    // Set gold weight to 0
+    config.crystal.spawnWeights.gold = 0;
+    
+    const crystals: string[] = [];
+    for (let i = 0; i < 200; i++) {
+      const crystal = createCrystalEntity(360, 2, highScore);
+      crystals.push(crystal.type.color);
+    }
+    
+    // Gold should never appear
+    expect(crystals.some(c => c === 'gold')).toBe(false);
+    
+    // Restore original weight
+    config.crystal.spawnWeights.gold = originalGoldWeight;
+  });
 });
 
 describe('createMeteorEntity', () => {

@@ -1,25 +1,13 @@
 // Basic setup for vitest (jsdom environment)
-// No-op for now; could initialize globals or mocks here.
-// Vitest setup: provide minimal mocks for headless tests (WebSocket, canvas 2D context, rAF)
+// Vitest setup: provide minimal mocks for headless tests (canvas 2D context, rAF)
 
 const noop = () => {};
 
-class MockWebSocket {
-  url: string;
-  readyState: number = 1;
-  onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  onerror: ((e: any) => void) | null = null;
-  constructor(url: string) { this.url = url; /* emulate open */ setTimeout(() => { this.onopen && this.onopen(); }, 0); }
-  addEventListener(type: string, cb: (...args: any[]) => void) { if (type === 'open') this.onopen = cb as any; if (type === 'close') this.onclose = cb as any; if (type === 'error') this.onerror = cb as any; }
-  removeEventListener() {}
-  send(_data?: any) {}
-  close() { this.readyState = 3; this.onclose && this.onclose(); }
-}
-
-// Only polyfill if an environment WebSocket is not already present
-if (!(globalThis as any).WebSocket) {
-  (globalThis as any).WebSocket = MockWebSocket;
+// Mock gradient object with addColorStop method
+class MockCanvasGradient {
+  addColorStop(_offset: number, _color: string): void {
+    // No-op for tests
+  }
 }
 
 // Lightweight CanvasRenderingContext2D shim used by the game code during tests
@@ -31,11 +19,18 @@ const mockCtx: Partial<CanvasRenderingContext2D> = {
   moveTo: noop,
   lineTo: noop,
   stroke: noop,
+  fill: noop, // Added for fill() calls
   fillRect: noop,
+  clearRect: noop, // Added for renderer.ts
   fillText: noop,
   translate: noop,
   rotate: noop,
   setTransform: noop,
+  arc: noop, // Added for rendering circles/arcs
+  quadraticCurveTo: noop, // Added for rendering curves
+  bezierCurveTo: noop, // Added for rendering curves
+  createLinearGradient: () => new MockCanvasGradient() as any, // Added for gradient creation
+  createRadialGradient: () => new MockCanvasGradient() as any, // Added for radial gradients
   measureText: (text: string) => ({ width: (text || '').length * 8 } as any),
   // properties commonly written by the game
   fillStyle: '' as any,
@@ -45,6 +40,8 @@ const mockCtx: Partial<CanvasRenderingContext2D> = {
   globalAlpha: 1 as any,
   lineWidth: 1 as any,
   font: '' as any,
+  textAlign: 'left' as any,
+  textBaseline: 'alphabetic' as any,
 };
 
 // Force canvas.getContext('2d') to return the lightweight shim in headless tests

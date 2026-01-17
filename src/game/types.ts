@@ -79,6 +79,7 @@ export interface FloatingText {
   life: number;
   color: string;
   vy: number;
+  size?: number; // Optional size for epic text effects!
 }
 
 export type PowerUpId = 'magnet' | 'time_slow' | 'chain_lightning';
@@ -193,6 +194,15 @@ export interface TouchAnchor {
   startY: number;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// RAINBOW RAIN EVENT - Wave of rainbow crystals
+// ═══════════════════════════════════════════════════════════════
+export interface RainbowRainEvent {
+  startedAt: number;
+  expiresAt: number;
+  lastSpawnAt: number;
+}
+
 export interface GameState {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -231,4 +241,5 @@ export interface GameState {
   viewport?: Viewport;
   cats: CatDrop[];
   lastCatSpawnTimestamp: number;
+  activeRainbowRain?: RainbowRainEvent;
 }
