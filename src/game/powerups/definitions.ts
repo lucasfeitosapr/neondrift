@@ -360,14 +360,18 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
       // Sort by nearest-neighbor for nice chain effect
       const sortedCrystals = sortCrystalsForChain(matchingCrystals, playerX, playerY);
       
+      // PERFORMANCE: Limit chain to prevent lag with too many crystals
+      const MAX_CHAIN_CRYSTALS = 12;
+      const chainedCrystals = sortedCrystals.slice(0, MAX_CHAIN_CRYSTALS);
+      
       // Get color hex for visuals
-      const colorHex = sortedCrystals[0].type.colorHex || '#00ffff';
+      const colorHex = chainedCrystals[0].type.colorHex || '#00ffff';
       
       // Create lightning arcs from player to first crystal, then between crystals
       const arcs: ChainLightningArc[] = [];
       
       // Arc from player to first crystal
-      const first = sortedCrystals[0];
+      const first = chainedCrystals[0];
       arcs.push({
         fromX: playerX,
         fromY: playerY,
@@ -382,9 +386,9 @@ export const powerUpRegistry: Record<PowerUpId, PowerUpDefinition> = {
       });
       
       // Arcs between subsequent crystals
-      for (let i = 0; i < sortedCrystals.length - 1; i++) {
-        const from = sortedCrystals[i];
-        const to = sortedCrystals[i + 1];
+      for (let i = 0; i < chainedCrystals.length - 1; i++) {
+        const from = chainedCrystals[i];
+        const to = chainedCrystals[i + 1];
         const fx = from.x + from.width / 2;
         const fy = from.y + from.height / 2;
         const tx = to.x + to.width / 2;

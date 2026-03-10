@@ -152,7 +152,7 @@ export function drawTimeSlowEffects(state: GameState): void {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CHAIN LIGHTNING RENDERING - MAXIMUM IMPACT! ⚡
+// CHAIN LIGHTNING RENDERING - BATCHED FOR PERFORMANCE! ⚡
 // ═══════════════════════════════════════════════════════════════
 export function drawChainLightning(state: GameState): void {
   const { ctx, chainLightningArcs, time, canvas } = state;
@@ -163,166 +163,138 @@ export function drawChainLightning(state: GameState): void {
   
   ctx.save();
   
-  // ⚡ SCREEN FLASH on fresh lightning (life > 0.9)
-  const hasActiveLightning = chainLightningArcs.some(a => a.life > 0.85);
-  if (hasActiveLightning) {
-    const flashIntensity = Math.max(...chainLightningArcs.map(a => a.life > 0.85 ? (a.life - 0.85) * 6 : 0));
+  // Pre-filter active arcs (life > 0 and has segments)
+  const activeArcs = chainLightningArcs.filter(a => a.life > 0 && a.segments.length >= 2);
+  if (activeArcs.length === 0) return;
+  
+  // Find max life for screen flash
+  const maxLife = Math.max(...activeArcs.map(a => a.life));
+  
+  // ⚡ SCREEN FLASH on fresh lightning
+  if (maxLife > 0.85) {
+    const flashIntensity = (maxLife - 0.85) * 6;
     ctx.fillStyle = `rgba(255, 255, 255, ${flashIntensity * 0.15})`;
     ctx.fillRect(0, 0, lw, lh);
   }
   
-  for (const arc of chainLightningArcs) {
-    if (arc.life <= 0 || arc.segments.length < 2) continue;
-    
-    const alpha = arc.life;
-    const glowIntensity = arc.life * 45; // MORE GLOW!
-    
-    // PERFORMANCE OPTIMIZATION: Use gradient strokes instead of shadowBlur
-    const useGradientOptimization = config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES;
-    
-    if (useGradientOptimization) {
-      // OPTIMIZED: Pre-baked glow with gradient strokes (no shadowBlur!)
-      
-      // Layer 1: MASSIVE outer glow (gradient stroke)
-      ctx.strokeStyle = arc.color;
-      ctx.lineWidth = 12 * arc.life;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalAlpha = alpha * 0.3;
-      ctx.shadowBlur = 0; // DISABLED for performance!
-      
-      // Create gradient along the path for glow effect
-      const gradient1 = ctx.createLinearGradient(
-        arc.segments[0].x, arc.segments[0].y,
-        arc.segments[arc.segments.length - 1].x, arc.segments[arc.segments.length - 1].y
-      );
-      gradient1.addColorStop(0, `${arc.color}00`);
-      gradient1.addColorStop(0.1, `${arc.color}33`);
-      gradient1.addColorStop(0.5, `${arc.color}66`);
-      gradient1.addColorStop(0.9, `${arc.color}33`);
-      gradient1.addColorStop(1, `${arc.color}00`);
-      ctx.strokeStyle = gradient1;
-      
-      ctx.beginPath();
-      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
-      for (let i = 1; i < arc.segments.length; i++) {
-        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
-      }
-      ctx.stroke();
-      
-      // Layer 2: Mid glow (solid stroke)
-      ctx.strokeStyle = arc.color;
-      ctx.lineWidth = 6 * arc.life;
-      ctx.globalAlpha = alpha * 0.6;
-      ctx.shadowBlur = 0; // DISABLED for performance!
-      
-      ctx.beginPath();
-      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
-      for (let i = 1; i < arc.segments.length; i++) {
-        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
-      }
-      ctx.stroke();
-      
-      // Layer 3: Core (white-hot)
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3 * arc.life;
-      ctx.globalAlpha = alpha;
-      ctx.shadowBlur = 0; // DISABLED for performance!
-      
-      ctx.beginPath();
-      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
-      for (let i = 1; i < arc.segments.length; i++) {
-        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
-      }
-      ctx.stroke();
-      
-    } else {
-      // ORIGINAL: Expensive shadowBlur approach
-      ctx.strokeStyle = arc.color;
-      ctx.shadowColor = arc.color;
-      ctx.shadowBlur = glowIntensity * 1.5;
-      ctx.lineWidth = 12 * arc.life;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalAlpha = alpha * 0.3;
-      
-      ctx.beginPath();
-      ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
-      for (let i = 1; i < arc.segments.length; i++) {
-        ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
-      }
-      ctx.stroke();
-      
-      // Layer 2: Mid glow (colored)
-      ctx.shadowBlur = glowIntensity;
-      ctx.lineWidth = 6 * arc.life;
-      ctx.globalAlpha = alpha * 0.6;
-      ctx.stroke();
-      
-      // Layer 3: Core (white-hot)
-      ctx.strokeStyle = '#ffffff';
-      ctx.shadowColor = '#ffffff';
-      ctx.shadowBlur = glowIntensity * 0.6;
-      ctx.lineWidth = 3 * arc.life;
-      ctx.globalAlpha = alpha;
-      ctx.stroke();
+  // Common settings
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowBlur = 0; // Disabled for performance
+  
+  // ═══════════════════════════════════════════════════════════════
+  // LAYER 1: OUTER GLOW - BATCHED
+  // ═══════════════════════════════════════════════════════════════
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 12;
+  ctx.globalAlpha = 0.25;
+  ctx.beginPath();
+  for (const arc of activeArcs) {
+    ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
+    for (let i = 1; i < arc.segments.length; i++) {
+      ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
     }
-    
-    // ⚡ BRANCHING FORKS - small lightning offshoots
-    ctx.lineWidth = 1.5 * arc.life;
-    ctx.globalAlpha = alpha * 0.7;
-    ctx.shadowBlur = 0; // DISABLED for performance!
-    
+  }
+  ctx.stroke();
+  
+  // ═══════════════════════════════════════════════════════════════
+  // LAYER 2: MID GLOW - BATCHED
+  // ═══════════════════════════════════════════════════════════════
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 6;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  for (const arc of activeArcs) {
+    ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
+    for (let i = 1; i < arc.segments.length; i++) {
+      ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
+    }
+  }
+  ctx.stroke();
+  
+  // ═══════════════════════════════════════════════════════════════
+  // LAYER 3: CORE (white-hot) - BATCHED
+  // ═══════════════════════════════════════════════════════════════
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  for (const arc of activeArcs) {
+    ctx.moveTo(arc.segments[0].x, arc.segments[0].y);
+    for (let i = 1; i < arc.segments.length; i++) {
+      ctx.lineTo(arc.segments[i].x, arc.segments[i].y);
+    }
+  }
+  ctx.stroke();
+  
+  // ═══════════════════════════════════════════════════════════════
+  // LAYER 4: BRANCHING FORKS - BATCHED
+  // ═══════════════════════════════════════════════════════════════
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  for (const arc of activeArcs) {
+    const alpha = arc.life;
     for (let i = 1; i < arc.segments.length - 1; i += 2) {
       const seg = arc.segments[i];
-      // Random fork direction
       const forkAngle = Math.random() * Math.PI * 2;
       const forkLen = 8 + Math.random() * 15;
       const forkX = seg.x + Math.cos(forkAngle) * forkLen;
       const forkY = seg.y + Math.sin(forkAngle) * forkLen;
-      
-      ctx.beginPath();
       ctx.moveTo(seg.x, seg.y);
-      // Add a little jitter to the fork
       const midX = (seg.x + forkX) / 2 + (Math.random() - 0.5) * 8;
       const midY = (seg.y + forkY) / 2 + (Math.random() - 0.5) * 8;
       ctx.lineTo(midX, midY);
       ctx.lineTo(forkX, forkY);
-      ctx.stroke();
     }
-    
-    // ⚡ SPARKS along the path
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = useGradientOptimization ? 0 : 12; // DISABLED for performance!
-    ctx.globalAlpha = alpha * 0.9;
-    
+  }
+  ctx.stroke();
+  
+  // ═══════════════════════════════════════════════════════════════
+  // LAYER 5: SPARKS ALONG PATH - BATCHED
+  // ═══════════════════════════════════════════════════════════════
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 0.9;
+  ctx.beginPath();
+  for (const arc of activeArcs) {
     for (let i = 0; i < arc.segments.length; i++) {
-      const seg = arc.segments[i];
-      // Flicker effect
       if (Math.sin(time * 40 + i * 3) > 0.3) {
+        const seg = arc.segments[i];
         const sparkSize = (i === 0 || i === arc.segments.length - 1) ? 5 : 2.5;
-        ctx.beginPath();
+        ctx.moveTo(seg.x + sparkSize, seg.y);
         ctx.arc(seg.x, seg.y, sparkSize * arc.life, 0, Math.PI * 2);
-        ctx.fill();
       }
     }
-    
-    // ⚡ BIG IMPACT SPARK at endpoint
-    const endPt = arc.segments[arc.segments.length - 1];
-    ctx.fillStyle = arc.color;
-    ctx.shadowColor = arc.color;
-    ctx.shadowBlur = useGradientOptimization ? 0 : 25 * arc.life; // DISABLED for performance!
-    ctx.globalAlpha = alpha;
-    ctx.beginPath();
-    ctx.arc(endPt.x, endPt.y, 8 * arc.life, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = 0; // DISABLED for performance!
-    ctx.beginPath();
-    ctx.arc(endPt.x, endPt.y, 4 * arc.life, 0, Math.PI * 2);
-    ctx.fill();
   }
+  ctx.fill();
+  
+  // ═══════════════════════════════════════════════════════════════
+  // LAYER 6: ENDPOINT SPARKS - BATCHED (colored outer + white core)
+  // ═══════════════════════════════════════════════════════════════
+  // Colored outer ring
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  for (const arc of activeArcs) {
+    const endPt = arc.segments[arc.segments.length - 1];
+    const size = 8 * arc.life;
+    ctx.moveTo(endPt.x + size, endPt.y);
+    ctx.arc(endPt.x, endPt.y, size, 0, Math.PI * 2);
+  }
+  ctx.fill();
+  
+  // White core
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  for (const arc of activeArcs) {
+    const endPt = arc.segments[arc.segments.length - 1];
+    const size = 4 * arc.life;
+    ctx.moveTo(endPt.x + size, endPt.y);
+    ctx.arc(endPt.x, endPt.y, size, 0, Math.PI * 2);
+  }
+  ctx.fill();
   
   ctx.restore();
   ctx.shadowBlur = 0;
