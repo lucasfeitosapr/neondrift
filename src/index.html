@@ -13,7 +13,13 @@
     <div class="menu-overlay" id="menuOverlay">
       <div class="menu-title">N E O N  D R I F T</div>
       <button class="menu-btn" id="startBtn">S T A R T</button>
+      <button class="menu-btn menu-btn--daily" id="dailyBtn">◈ D A I L Y</button>
       <button class="menu-btn menu-btn--secondary" id="quitBtn">Q U I T</button>
+      <div class="menu-seed-row">
+        <input class="menu-seed-input" id="seedInput" placeholder="paste seed hex to replay" maxlength="64" spellcheck="false" autocomplete="off" />
+        <button class="menu-seed-btn" id="playSeedBtn">▶</button>
+      </div>
+      <div class="menu-seed-hint" id="seedHint"></div>
     </div>
     <div class="title">N E O N  D R I F T</div>
     <div class="stage-row">
@@ -224,6 +230,22 @@
         </div>
       </details>
       
+      <!-- QRNG / Seed -->
+      <details class="debug-group">
+        <summary class="debug-group__summary">QRNG</summary>
+        <div class="debug-group__body">
+          <div class="debug-row">
+            <span class="label">Seed</span>
+            <span class="value" id="debugSeed">—</span>
+          </div>
+          <div class="debug-row">
+            <span class="label">Source</span>
+            <span class="value" id="debugSeedSource">—</span>
+          </div>
+          <button class="debug-action-btn" id="refetchDailyBtn">Re-fetch Daily Seed</button>
+        </div>
+      </details>
+
       <div class="debug-hint">Press <strong>`</strong> to toggle panel</div>
       </div>
     </div>
@@ -236,6 +258,7 @@
         <div class="score-panel">
           <div class="score" id="score">S C O R E : 000000</div>
           <div class="score" id="highScore">H I G H : 000000</div>
+          <div class="score score--timer" id="runTimer">T I M E : 00:00</div>
         </div>
         <div class="action-row">
           <button id="pauseBtn" class="pause-btn">P A U S E</button>

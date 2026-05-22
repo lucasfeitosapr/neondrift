@@ -4,6 +4,10 @@ import { renderScene } from './renderer';
 import { spawnCat, spawnCrystal, spawnMeteor, spawnRevengeMeteor } from './spawner';
 import { GameState } from './types';
 import { createState } from './state';
+import { random } from './rng';
+import { fetchQuantumSeed } from './quantum';
+import { getDailyChallengeSeed } from './dailyChallenge';
+import { RunSeedPayload } from './types';
 import { activatePowerUp, tickPowerUps } from './powerups/system';
 import { spawnPowerUpPickup, updatePowerUpPickups } from './powerups/pickups';
 import { checkCollision, checkPlayerCollision } from './collision';
@@ -32,13 +36,16 @@ import {
 import { debugControls } from './ui/debugPanelConfig';
 import { updateScoreDisplay, initializeHighScoreDisplay } from './ui/scoreDisplay';
 import { activateRainbowRain, tickRainbowRain } from './events/rainbowRain';
+import { analyzeRunSeed } from './oracle';
+import { drawOracle } from './render/oracle';
 
-export function startGame(): void {
+export function startGame(mode: 'normal' | 'daily' = 'normal', seedOverride?: RunSeedPayload): void {
   // ...existing code migrated from neon_drift.html script section...
   const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
   const scoreElement = document.getElementById('score') as HTMLElement;
   const highScoreElement = document.getElementById('highScore') as HTMLElement;
+  const timerElement = document.getElementById('runTimer') as HTMLElement | null;
 
   // Event manager to track and clean up event listeners
   const eventManager = new EventManager();
@@ -86,6 +93,7 @@ export function startGame(): void {
       return;
     }
     const dtMs = state.dtFactor * (1000 / 60);
+    state.runElapsedMs += dtMs;
     tickPowerUps(state, now, dtMs);
     tickRainbowRain(state, now, dtMs);
     
@@ -318,7 +326,7 @@ export function startGame(): void {
     const catCooldownPassed = (now - state.lastCatSpawnTimestamp) >= config.cat.spawnCooldownMs;
     if (catCooldownPassed && state.cats.length < config.cat.maxOnScreen) {
       const catSpawnChance = config.cat.spawnChance * state.dtFactor;
-      if (Math.random() < catSpawnChance) {
+      if (random() < catSpawnChance) {
         spawnCat(state);
         state.lastCatSpawnTimestamp = now;
       }
@@ -329,13 +337,13 @@ export function startGame(): void {
     const speedBonus = 1 + (state.gameSpeed - config.INITIAL_GAME_SPEED) * 0.15; // +15% per speed level
     const crystalSpawnChance = config.SPAWN_CRYSTAL_RATE * spawnScale * speedBonus * state.modifiers.spawnRateCrystal * comboScaling.spawnMultiplier;
     const meteorSpawnChance = config.SPAWN_METEOR_RATE * spawnScale * speedBonus * state.modifiers.spawnRateMeteor * comboScaling.spawnMultiplier;
-    
-    if (Math.random() < crystalSpawnChance) spawnCrystal(state);
-    if (Math.random() < meteorSpawnChance && state.debug?.meteors) spawnMeteor(state);
+
+    if (random() < crystalSpawnChance) spawnCrystal(state);
+    if (random() < meteorSpawnChance && state.debug?.meteors) spawnMeteor(state);
     
     // Independent magnet spawning from the sky (affected by diminishing returns when active)
     const magnetSpawnRate = config.SPAWN_MAGNET_RATE * spawnScale * state.modifiers.spawnRateMagnet;
-    if (Math.random() < magnetSpawnRate) {
+    if (random() < magnetSpawnRate) {
       // Spawn protection: check cooldown, max pickups and minimum distance
       const { MAX_POWERUP_PICKUPS, MIN_PICKUP_DISTANCE_X, PICKUP_DISTANCE_CHECK_Y, MAGNET_SPAWN_COOLDOWN_MS } = config.spawning;
       const now = performance.now();
@@ -348,20 +356,20 @@ export function startGame(): void {
         // Skip spawn
       } else {
         // Check 2: Find a valid spawn position (not too close to existing pickups)
-        const x = Math.random() * (lw - 22); // 22 = pickup width
+        const x = random() * (lw - 22); // 22 = pickup width
         const spawnY = -25;
-        
+
         const tooClose = state.powerUpPickups.some(p => {
           const verticallyClose = Math.abs(p.y - spawnY) < PICKUP_DISTANCE_CHECK_Y;
           const horizontallyClose = Math.abs(p.x - x) < MIN_PICKUP_DISTANCE_X;
           return verticallyClose && horizontallyClose;
         });
-        
+
         if (!tooClose) {
           // Determine style based on config
           const styles: Array<'horseshoe' | 'vortex' | 'ring' | 'field'> = ['horseshoe', 'vortex', 'ring', 'field'];
-          const style = config.magnet.STYLE === 'random' 
-            ? styles[Math.floor(Math.random() * styles.length)]
+          const style = config.magnet.STYLE === 'random'
+            ? styles[Math.floor(random() * styles.length)]
             : config.magnet.STYLE;
           
           spawnPowerUpPickup(state, 'magnet', x, spawnY, Math.max(3, state.gameSpeed * 1.2), style);
@@ -372,12 +380,12 @@ export function startGame(): void {
     
     // Chain Lightning spawning (rarer than magnet, but exciting!)
     const chainLightningSpawnRate = config.SPAWN_CHAIN_LIGHTNING_RATE * spawnScale;
-    if (Math.random() < chainLightningSpawnRate) {
+    if (random() < chainLightningSpawnRate) {
       const { MAX_POWERUP_PICKUPS, MIN_PICKUP_DISTANCE_X, PICKUP_DISTANCE_CHECK_Y } = config.spawning;
-      
+
       // Only spawn if we have space and crystals on screen
       if (state.powerUpPickups.length < MAX_POWERUP_PICKUPS && state.crystals.length >= 3) {
-        const x = Math.random() * (lw - 22);
+        const x = random() * (lw - 22);
         const spawnY = -25;
         
         const tooClose = state.powerUpPickups.some(p => {
@@ -394,11 +402,11 @@ export function startGame(): void {
     
     // Time Slow spawning (same rarity as chain lightning)
     const timeSlowSpawnRate = config.SPAWN_TIME_SLOW_RATE * spawnScale;
-    if (Math.random() < timeSlowSpawnRate) {
+    if (random() < timeSlowSpawnRate) {
       const { MAX_POWERUP_PICKUPS, MIN_PICKUP_DISTANCE_X, PICKUP_DISTANCE_CHECK_Y } = config.spawning;
-      
+
       if (state.powerUpPickups.length < MAX_POWERUP_PICKUPS) {
-        const x = Math.random() * (lw - 22);
+        const x = random() * (lw - 22);
         const spawnY = -25;
         
         const tooClose = state.powerUpPickups.some(p => {
@@ -411,7 +419,7 @@ export function startGame(): void {
           // Determine style based on config
           const styles: Array<'clock' | 'hourglass'> = ['clock', 'hourglass'];
           const timeSlowStyle = config.TIME_SLOW_STYLE === 'random'
-            ? styles[Math.floor(Math.random() * styles.length)]
+            ? styles[Math.floor(random() * styles.length)]
             : config.TIME_SLOW_STYLE;
           
           spawnPowerUpPickup(state, 'time_slow', x, spawnY, Math.max(3, state.gameSpeed * 1.0), undefined, timeSlowStyle);
@@ -420,9 +428,36 @@ export function startGame(): void {
     }
   }
 
-  function handleRestart() {
-    restartGame(state, logicalWidth, logicalHeight, scoreElement);
+  const debugSeedEl = document.getElementById('debugSeed');
+  const debugSeedSourceEl = document.getElementById('debugSeedSource');
+
+  function showOracleForSeed(seed: RunSeedPayload) {
+    restartGame(state, logicalWidth, logicalHeight, scoreElement, seed);
     pauseSystem.syncPauseButton();
+    // analyzeRunSeed simulates the run then re-seeds PRNG to the start position
+    state.oracleReading = analyzeRunSeed(seed);
+    state.showingOracle = true;
+    state.gameRunning = false; // hold until player dismisses the oracle
+    if (debugSeedEl) debugSeedEl.textContent = seed.hex.slice(0, 8) + '…';
+    if (debugSeedSourceEl) {
+      debugSeedSourceEl.textContent = seed.isDailyRun ? '◈ daily' : seed.source === 'manual' ? '◈ manual' : seed.source;
+    }
+  }
+
+  async function handleRestart() {
+    // Manual seed override: skip fetching, reuse the same seed every restart so
+    // the player can keep practicing the exact same run layout.
+    if (seedOverride) {
+      showOracleForSeed(seedOverride);
+      return;
+    }
+    state._awaitingQuantumSeed = true;
+    if (debugSeedEl) debugSeedEl.textContent = '…';
+    if (debugSeedSourceEl) debugSeedSourceEl.textContent = '…';
+    const seed = mode === 'daily'
+      ? await getDailyChallengeSeed()
+      : await fetchQuantumSeed();
+    showOracleForSeed(seed);
   }
 
   // Setup initial player and canvas
@@ -454,6 +489,13 @@ export function startGame(): void {
   const targetFrameTime = config.TARGET_FPS > 0 ? 1000 / config.TARGET_FPS : 0;
   let frameAccumulator = 0;
 
+  function formatRunTime(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `T I M E : ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
   function gameLoop(timestamp: number) {
     const elapsed = timestamp - lastTimestamp;
     
@@ -480,13 +522,21 @@ export function startGame(): void {
     state.fps = 1000 / Math.max(1, frameDt);
     lastFpsTimestamp = now;
 
-    update();
-    
+    if (!state.showingOracle) {
+      update();
+    }
+
+    if (timerElement) timerElement.textContent = formatRunTime(state.runElapsedMs);
+
     // Scale animation time by game speed (slow-mo affects rotations, pulses, etc.)
     state.time += dtSeconds * state.modifiers.gameSpeed;
 
     // render via renderer module (canvas debug overlay disabled - use HTML panel instead)
     renderScene({ ...state, debugEnabled: false });
+
+    if (state.showingOracle) {
+      drawOracle(state);
+    }
     
     // Update the external HTML debug panel
     if (panel) {
@@ -497,13 +547,32 @@ export function startGame(): void {
   }
 
   // Use state-driven restart request (set by input)
+  // Guard _awaitingQuantumSeed so a second ENTER while fetching is ignored
   const restartKeyHandler = () => {
-    if (!state.gameRunning && state._restartRequested) {
+    if (state.showingOracle && state._restartRequested) {
       state._restartRequested = false;
-      handleRestart();
+      state.showingOracle = false;
+      state.gameRunning = true;
+      return;
+    }
+    if (!state.gameRunning && !state._awaitingQuantumSeed && state._restartRequested) {
+      state._restartRequested = false;
+      void handleRestart();
     }
   };
   eventManager.addEventListener(document, 'keydown', restartKeyHandler);
+
+  // Copy seed to clipboard with 'C' on death screen
+  const copySeedHandler = (e: Event) => {
+    const ke = e as KeyboardEvent;
+    if (!state.gameRunning && !state._awaitingQuantumSeed && state.runSeed
+        && (ke.key === 'c' || ke.key === 'C') && !ke.ctrlKey && !ke.metaKey) {
+      void navigator.clipboard.writeText(state.runSeed.hex).catch(() => undefined);
+      state._seedCopied = true;
+      setTimeout(() => { state._seedCopied = false; }, 1500);
+    }
+  };
+  eventManager.addEventListener(document, 'keydown', copySeedHandler);
 
   // Wire resize event
   const resizeHandler = () => { requestAnimationFrame(handleResize); };
@@ -517,7 +586,11 @@ export function startGame(): void {
   // Store cleanup function in state for potential future use
   (state as GameState & { _cleanup?: () => void })._cleanup = cleanup;
 
-  handleRestart();
+  // Start the loop first so the "CONNECTING TO ANU QRNG..." screen renders
+  // while the quantum fetch is in flight. restartGame() sets gameRunning=true.
+  state.gameRunning = false;
+  state._awaitingQuantumSeed = true;
   lastTimestamp = performance.now();
   requestAnimationFrame(gameLoop);
+  void handleRestart();
 }

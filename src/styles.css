@@ -103,6 +103,15 @@ body {
   margin-bottom: var(--space-sm);
 }
 
+.score-panel .score--timer {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid rgba(0, 255, 255, 0.15);
+  font-size: 14px;
+  color: rgba(0, 255, 255, 0.55);
+  text-shadow: none;
+}
+
 body::before {
   content: '';
   position: fixed;
@@ -760,4 +769,89 @@ a.title {
 .menu-btn--secondary:focus {
   background: var(--color-neon-magenta);
   box-shadow: var(--glow-magenta);
+}
+
+.menu-btn--daily {
+  border-color: var(--color-neon-orange);
+  color: var(--color-neon-orange);
+  box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+  font-size: 15px;
+}
+
+.menu-btn--daily:hover,
+.menu-btn--daily:focus {
+  background: var(--color-neon-orange);
+  color: var(--color-bg-dark);
+  box-shadow: 0 0 25px rgba(255, 170, 0, 0.9);
+}
+
+.debug-action-btn {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 5px 8px;
+  margin-top: 6px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgba(255, 170, 0, 0.4);
+  color: var(--color-neon-orange);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.debug-action-btn:hover {
+  background: rgba(255, 170, 0, 0.12);
+}
+
+.menu-seed-row {
+  display: flex;
+  gap: 8px;
+  width: 240px;
+  margin-top: 4px;
+}
+
+.menu-seed-input {
+  flex: 1;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(197, 155, 255, 0.4);
+  color: #c59bff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.menu-seed-input::placeholder {
+  color: rgba(197, 155, 255, 0.3);
+}
+
+.menu-seed-input:focus {
+  border-color: #c59bff;
+  box-shadow: 0 0 10px rgba(197, 155, 255, 0.3);
+}
+
+.menu-seed-btn {
+  font-family: 'Orbitron', monospace;
+  font-size: 14px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid rgba(197, 155, 255, 0.4);
+  color: #c59bff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.menu-seed-btn:hover {
+  background: rgba(197, 155, 255, 0.15);
+  border-color: #c59bff;
+}
+
+.menu-seed-hint {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255, 80, 80, 0.8);
+  height: 14px;
 }

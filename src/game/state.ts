@@ -64,6 +64,7 @@ export function createState(canvas: HTMLCanvasElement, ctx: CanvasRenderingConte
     chainLightningArcs: [],
     timeSlowRipples: [],
     pendingRevengeMeteors: [],
-    lastCatSpawnTimestamp: 0
+    lastCatSpawnTimestamp: 0,
+    runElapsedMs: 0
   };
 }

@@ -1,11 +1,12 @@
 import { config } from './config';
+import { random } from './rng';
 import { CatDrop, Crystal, CrystalType, Meteor } from './types';
 
 export function createCrystalEntity(logicalWidth: number, gameSpeed: number, score: number): Crystal {
   const typesPool: CrystalType[] = [];
   const thresholds = config.crystal.thresholds;
   const weights = config.crystal.spawnWeights;
-  
+
   // Cyan crystals - base crystal type (always available if enabled)
   if (config.features.ENABLE_CRYSTAL_CYAN) {
     for (let i = 0; i < weights.cyan; i++) {
@@ -35,28 +36,28 @@ export function createCrystalEntity(logicalWidth: number, gameSpeed: number, sco
     typesPool.push({ color: 'cyan', points: 10, colorHex: '#00ffff', colorRgb: '0, 255, 255' });
   }
 
-  const chosenType = typesPool[Math.floor(Math.random() * typesPool.length)];
+  const chosenType = typesPool[Math.floor(random() * typesPool.length)];
 
   return {
-    x: Math.random() * (logicalWidth - config.crystal.size),
+    x: random() * (logicalWidth - config.crystal.size),
     y: -config.crystal.size,
     width: config.crystal.size,
     height: config.crystal.size,
-    speed: gameSpeed + Math.random() * 2,
+    speed: gameSpeed + random() * 2,
     rotation: 0,
-    glow: Math.random() * 0.5 + 0.5,
+    glow: random() * 0.5 + 0.5,
     type: chosenType,
-    hueOffset: Math.random() * 360
+    hueOffset: random() * 360
   };
 }
 
 export function createMeteorEntity(logicalWidth: number, gameSpeed: number): Meteor {
   return {
-    x: Math.random() * (logicalWidth - config.meteor.size),
+    x: random() * (logicalWidth - config.meteor.size),
     y: -config.meteor.size,
     width: config.meteor.size,
     height: config.meteor.size,
-    speed: gameSpeed + Math.random() * 3,
+    speed: gameSpeed + random() * 3,
     rotation: 0,
     pulse: 0
   };
@@ -66,14 +67,14 @@ export function createCatEntity(logicalWidth: number, gameSpeed: number): CatDro
   const size = config.cat.size;
   const patterns: CatDrop['pattern'][] = ['tabby', 'neon', 'shadow'];
   return {
-    x: Math.random() * (logicalWidth - size),
+    x: random() * (logicalWidth - size),
     y: -size,
     width: size,
     height: size,
-    speed: gameSpeed + config.cat.speedMinBonus + Math.random() * (config.cat.speedMaxBonus - config.cat.speedMinBonus),
-    hue: Math.random() * 360,
-    wobble: Math.random() * Math.PI * 2,
-    pattern: patterns[Math.floor(Math.random() * patterns.length)]
+    speed: gameSpeed + config.cat.speedMinBonus + random() * (config.cat.speedMaxBonus - config.cat.speedMinBonus),
+    hue: random() * 360,
+    wobble: random() * Math.PI * 2,
+    pattern: patterns[Math.floor(random() * patterns.length)]
   };
 }
 
@@ -85,9 +86,9 @@ export function createCrystal(x: number, y: number, speed: number, type: Crystal
     height: config.crystal.size,
     speed,
     rotation: 0,
-    glow: Math.random() * 0.5 + 0.5,
+    glow: random() * 0.5 + 0.5,
     type,
-    hueOffset: Math.random() * 360
+    hueOffset: random() * 360
   };
 }
 

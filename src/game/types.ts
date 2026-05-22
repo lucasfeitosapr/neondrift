@@ -1,4 +1,5 @@
 import { Pool } from './pool';
+import type { OracleReading } from './oracle';
 
 export type CrystalColor = 'cyan' | 'purple' | 'gold' | 'rainbow';
 
@@ -203,6 +204,14 @@ export interface RainbowRainEvent {
   lastSpawnAt: number;
 }
 
+export interface RunSeedPayload {
+  hex: string;          // raw hex from ANU (16+ chars) or local uint32 (8 chars)
+  seed: number;         // derived uint32 fed to the PRNG
+  source: 'quantum' | 'local' | 'manual';
+  measuredAt: number;   // Date.now() at fetch time
+  isDailyRun?: boolean; // true when run came from the daily challenge slot
+}
+
 export interface GameState {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -236,6 +245,12 @@ export interface GameState {
   chainLightningArcs: ChainLightningArc[];
   timeSlowRipples: TimeSlowRipple[];
   pendingRevengeMeteors: PendingRevengeMeteor[];
+  runElapsedMs: number;
+  runSeed?: RunSeedPayload;
+  oracleReading?: OracleReading;
+  showingOracle?: boolean;
+  _awaitingQuantumSeed?: boolean;
+  _seedCopied?: boolean;
   _restartRequested?: boolean;
   _touchAnchor?: TouchAnchor | null;
   viewport?: Viewport;

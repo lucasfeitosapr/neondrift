@@ -40,6 +40,22 @@ export function drawUI(state: GameState & { gameRunning: boolean; score: number;
   const lh = state.viewport?.height ?? canvas.height;
   const useOptimizedRendering = config.rainbowRain.CHAIN_LIGHTNING_USE_LARGE_PARTICLES;
 
+  // Run-type badge (top-right), shown during gameplay
+  if (gameRunning && state.runSeed) {
+    const isDaily = state.runSeed.isDailyRun;
+    const isManual = state.runSeed.source === 'manual';
+    if (isDaily || isManual) {
+      ctx.save();
+      ctx.font = 'bold 10px Orbitron';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = isDaily ? '#ffaa00' : '#c59bff';
+      ctx.shadowColor = isDaily ? '#ffaa00' : '#c59bff';
+      ctx.shadowBlur = 10;
+      ctx.fillText(isDaily ? '◈ DAILY' : '◈ SEED RUN', lw - 10, 18);
+      ctx.restore();
+    }
+  }
+
   // Active power-up HUD (top-left)
   if (gameRunning) {
     ctx.save();
@@ -106,9 +122,70 @@ export function drawUI(state: GameState & { gameRunning: boolean; score: number;
   }
 
   if (!state.gameRunning) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, lw, lh);
-    ctx.fillStyle = '#ff00ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 20; ctx.font = 'bold 32px Orbitron'; ctx.textAlign = 'center'; ctx.fillText('G A M E', lw/2, lh/2 - 40); ctx.fillText('O V E R', lw/2, lh/2 - 5);
-    ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15; ctx.font = 'bold 18px Orbitron'; ctx.fillText(`FINAL SCORE: ${state.score.toString().padStart(6, '0')}`, lw/2, lh/2 + 40);
-    ctx.font = '12px Orbitron'; ctx.fillText('PRESS ENTER KEY TO RESTART', lw/2, lh/2 + 80); ctx.shadowBlur = 0;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(0, 0, lw, lh);
+
+    // Daily challenge header (above GAME OVER)
+    if (state.runSeed?.isDailyRun) {
+      const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+      ctx.font = 'bold 13px Orbitron';
+      ctx.fillStyle = '#ffaa00';
+      ctx.shadowColor = '#ffaa00';
+      ctx.shadowBlur = 18;
+      ctx.fillText(`◈ DAILY CHALLENGE · ${today}`, lw / 2, lh / 2 - 78);
+    }
+
+    // GAME OVER
+    ctx.fillStyle = '#ff00ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 20;
+    ctx.font = 'bold 32px Orbitron';
+    ctx.fillText('G A M E', lw / 2, lh / 2 - 40);
+    ctx.fillText('O V E R', lw / 2, lh / 2 - 5);
+
+    // Final score
+    ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15;
+    ctx.font = 'bold 18px Orbitron';
+    ctx.fillText(`FINAL SCORE: ${state.score.toString().padStart(6, '0')}`, lw / 2, lh / 2 + 40);
+
+    if (state._awaitingQuantumSeed) {
+      ctx.font = '10px Orbitron';
+      ctx.fillStyle = 'rgba(255, 170, 0, 0.6)';
+      ctx.shadowColor = '#ffaa00';
+      ctx.shadowBlur = 8;
+      ctx.fillText('CONNECTING TO ANU QRNG...', lw / 2, lh / 2 + 80);
+    } else {
+      ctx.font = '12px Orbitron';
+      ctx.fillStyle = '#00ffff';
+      ctx.shadowColor = '#00ffff';
+      ctx.shadowBlur = 10;
+      ctx.fillText('PRESS ENTER TO RESTART', lw / 2, lh / 2 + 80);
+
+      if (state.runSeed) {
+        const { hex, source, measuredAt } = state.runSeed;
+        const abbrev = hex.slice(0, 4) + '...' + hex.slice(-4);
+        const time = new Date(measuredAt).toLocaleTimeString();
+        const sourceLabel = source === 'quantum' ? `measured ${time} · ANU QRNG`
+          : source === 'manual' ? 'replayed seed'
+          : 'local entropy';
+
+        if (state._seedCopied) {
+          ctx.font = 'bold 10px Orbitron';
+          ctx.fillStyle = '#ffaa00';
+          ctx.shadowColor = '#ffaa00';
+          ctx.shadowBlur = 12;
+          ctx.fillText('SEED COPIED ✓', lw / 2, lh / 2 + 108);
+        } else {
+          ctx.font = '10px Orbitron';
+          ctx.fillStyle = 'rgba(0, 255, 255, 0.35)';
+          ctx.shadowBlur = 0;
+          ctx.fillText(`RUN SEED: ${abbrev} · ${sourceLabel}`, lw / 2, lh / 2 + 104);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.font = '9px Orbitron';
+          ctx.fillText('PRESS C TO COPY', lw / 2, lh / 2 + 120);
+        }
+      }
+    }
+    ctx.restore();
   }
 }
