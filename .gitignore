@@ -1,1 +1,24 @@
-node_modules
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local AI agent files (kept out of the public repo)
+.cursor/
+.windsurf/
+.claude/
+.kiro/
+AGENTS.md
+CLAUDE.md
+AI_AGENT_KNOWLEDGE_BASE.md

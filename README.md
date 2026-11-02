@@ -1,47 +1,74 @@
 # Neon Drift
 
-A small TypeScript + Vite arcade prototype inspired by neon aesthetic and fast pickup gameplay. The game is implemented as a modular TypeScript project under `src/game/` and bootstrapped from `src/main.ts`.
+A neon arcade game for the browser. You drift left and right, collect crystals, dodge meteors and chain combos while the difficulty ramps up. Runs are short, fast and replayable.
 
-Status
-- Playable prototype: player movement, collectible crystals, hazards (meteors), particle effects, combo scoring, and high-score persistence are implemented.
-- Systems: renderer, spawner, input, particle pool, simple debug overlay.
+Built solo in TypeScript with Vite and the HTML Canvas API. It started as a single HTML file (`neon_drift.html`, kept in the repo) and grew into a modular codebase with tests.
 
-Quick start
-1. cd to project root
-2. npm install
-3. npm run dev
+## Who it's for
 
-Build
-- npm run build
-- npm run preview
+- **Players** who like quick score-chasing arcade runs in the browser.
+- **Developers** curious about how a small canvas game can be structured: game loop, spawner, object pooling, power-up system, event system.
 
-CI
-- GitHub Actions workflow at `.github/workflows/ci.yml`
-- Gitea Actions workflow at `.gitea/workflows/ci.yml`
-- Pipeline runs lint, tests (with coverage), build, and Docker image build
-- Artifacts uploaded: `coverage/` (HTML + json) and `dist/` (built site)
+## Features
 
-Branch protection (recommended)
-- Require the CI workflow to pass before merge
-- Require PRs for `main`/`master`
-- Enable linear history and dismiss stale approvals on new commits
+- Crystal collection with combo scoring and combo-driven difficulty
+- Meteors as hazards, including a "revenge" meteor
+- Power-ups: **Magnet**, **Time Slow**, **Chain Lightning**
+- **Rainbow Rain** event
+- Main menu, pause and restart
+- High score saved in the browser
+- Debug overlay (FPS, collision boxes, grid, particles)
 
-Controls
-- Move: Left / Right arrows or A / D
-- Restart: press any key when game over
-- Debug toggles: ` (backquote) to toggle overlay, G to toggle grid, B to toggle collision boxes, P to toggle particles
+Work in progress on the `feat/experimental` branch: seeded runs, daily challenges and an "Oracle" mechanic.
 
-Where to look in the code
-- `src/main.ts` — app bootstrap and DOM bindings
-- `src/game/game.ts` — main game loop and high-level game state
-- `src/game/renderer.ts` — rendering logic extracted from the original single-file game
-- `src/game/spawner.ts` — crystal and meteor spawn logic
-- `src/game/input.ts` — input handling module
-- `src/game/pool.ts` — particle pooling utility
-- `src/game/config.ts` — tuning constants
+## Tech stack
 
-Notes for contributors
-- TypeScript + Vite setup; keep changes modular and add tests where possible.
-- Prefer small PRs focused on a single feature or polish task.
+- TypeScript (strict), HTML Canvas
+- Vite (dev server and build)
+- Vitest + jsdom (tests)
+- ESLint
+- Optional: Docker + nginx image for static hosting
 
-If you want, I can also add CONTRIBUTING.md, LICENSE, or a short changelog file.
+## Running it
+
+Requirements: Node.js 20+.
+
+```bash
+npm ci
+npm run dev      # dev server
+npm run build    # production build into dist/
+npm run preview  # serve the build locally
+npm test         # tests (watch mode); add -- --run for a single run
+```
+
+Docker:
+
+```bash
+docker build -t neondrift .
+docker run -p 8080:8080 neondrift
+```
+
+## Controls
+
+- **Move:** Left / Right arrows, or A / D
+- **Restart:** any key on the game over screen
+- **Debug:** backquote (`) toggles the overlay, G the grid, B collision boxes, P particles
+
+## Project layout
+
+- `src/main.ts`: bootstrap and DOM bindings
+- `src/game/game.ts`: main loop and high-level state
+- `src/game/renderer.ts`, `src/game/render/`: rendering
+- `src/game/spawner.ts`: crystal and meteor spawning
+- `src/game/powerups/`: power-up definitions, pickups and system
+- `src/game/events/`: timed events (Rainbow Rain)
+- `src/game/config.ts`: tuning constants
+- `test/`: Vitest specs
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md). The next milestone is a first public release on itch.io.
+
+## License
+
+[MIT](LICENSE)
